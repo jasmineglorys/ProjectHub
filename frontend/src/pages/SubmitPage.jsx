@@ -4,7 +4,15 @@ import { createProject } from '../api/projectApi';
 import { extractError } from '../api/axiosConfig';
 import { useAuth } from '../context/AuthContext';
 import Alert from '../components/Alert';
-import { CATEGORIES, DEPARTMENTS, PROJECT_YEARS, SAMPLE_IMAGES, imageUrl } from '../constants';
+import {
+  ACADEMIC_YEARS,
+  CATEGORIES,
+  DEPARTMENTS,
+  PROJECT_YEARS,
+  SAMPLE_IMAGES,
+  imageUrl,
+  isValidAcademicYear,
+} from '../constants';
 
 const DEPLOY_LINK_REQUIRED_DEPARTMENTS = ['CSE', 'IT'];
 const OPTIONAL_RESOURCE_DEPARTMENTS = ['ECE', 'EEE', 'Civil', 'Mechanical'];
@@ -26,6 +34,7 @@ export default function SubmitPage() {
     department: user?.department || 'CSE',
     category: 'Web Development',
     year: new Date().getFullYear(),
+    academicYear: user?.academicYear || '',
     technologies: '',
     image: SAMPLE_IMAGES[0],
     supportingFiles: [],
@@ -73,6 +82,10 @@ export default function SubmitPage() {
       else if (form.description.trim().length < 20)
         next.description = 'Description must be at least 20 characters';
 
+      if (!isValidAcademicYear(form.academicYear)) {
+        next.academicYear = 'Enter an academic year range like 2023-2027';
+      }
+
       if (deployLinkRequired && !form.deployLink.trim()) {
         next.deployLink = 'Deploy link is required for CSE and IT projects';
       } else if (form.deployLink.trim()) {
@@ -104,8 +117,7 @@ export default function SubmitPage() {
     if (validateStep(step)) setStep((s) => s + 1);
   }
 
-  async function handleSubmit(event) {
-    event.preventDefault();
+  async function handleSubmit() {
     setServerError('');
 
     if (!validateStep(1) || !validateStep(2)) {
@@ -120,9 +132,8 @@ export default function SubmitPage() {
       department: form.department,
       category: form.category,
       year: Number(form.year),
+      academicYear: form.academicYear.trim(),
       image: form.image,
-      supportingFileNames: form.supportingFiles.map((file) => file.name),
-      mediaFileNames: form.mediaFiles.map((file) => file.name),
       technologies: form.technologies
         .split(',')
         .map((t) => t.trim())
@@ -132,9 +143,14 @@ export default function SubmitPage() {
         .map((m) => ({ name: m.name.trim(), rollNo: m.rollNo.trim() })),
     };
 
+    const formData = new FormData();
+    formData.append('project', new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+    form.supportingFiles.forEach((file) => formData.append('supportingFiles', file));
+    form.mediaFiles.forEach((file) => formData.append('mediaFiles', file));
+
     setSubmitting(true);
     try {
-      await createProject(payload);
+      await createProject(formData);
       setSubmitted(true);
     } catch (err) {
       setServerError(extractError(err, 'Could not submit the project.'));
@@ -184,7 +200,7 @@ export default function SubmitPage() {
       </div>
 
       <div className="page-narrow section">
-        <form className="panel" onSubmit={handleSubmit} noValidate>
+        <form className="panel" onSubmit={(event) => event.preventDefault()} noValidate>
           <Alert message={serverError} onClose={() => setServerError('')} />
 
           {step === 1 && (
@@ -293,6 +309,24 @@ export default function SubmitPage() {
                     </option>
                   ))}
                 </select>
+              </label>
+
+              <label className="field">
+                <span>Academic Year *</span>
+                <input
+                  type="text"
+                  list="project-academic-years"
+                  value={form.academicYear}
+                  onChange={(e) => update('academicYear', e.target.value)}
+                  placeholder="2023-2027"
+                  aria-invalid={Boolean(errors.academicYear)}
+                />
+                <datalist id="project-academic-years">
+                  {ACADEMIC_YEARS.map((year) => <option key={year} value={year} />)}
+                </datalist>
+                {errors.academicYear && (
+                  <small className="field-error">{errors.academicYear}</small>
+                )}
               </label>
             </div>
           )}
@@ -415,7 +449,7 @@ export default function SubmitPage() {
                 Next →
               </button>
             ) : (
-              <button type="submit" className="btn btn-gold" disabled={submitting}>
+              <button type="button" className="btn btn-gold" onClick={handleSubmit} disabled={submitting}>
                 {submitting ? 'Submitting…' : 'Submit Project 🚀'}
               </button>
             )}

@@ -7,6 +7,7 @@ import com.accet.projecthub.dto.TeamMemberDto;
 import com.accet.projecthub.dto.ToggleResponse;
 import com.accet.projecthub.entity.Bookmark;
 import com.accet.projecthub.entity.Project;
+import com.accet.projecthub.entity.ProjectFile;
 import com.accet.projecthub.entity.ProjectLike;
 import com.accet.projecthub.entity.ProjectStatus;
 import com.accet.projecthub.entity.TeamMember;
@@ -16,6 +17,7 @@ import com.accet.projecthub.exception.ResourceNotFoundException;
 import com.accet.projecthub.exception.UnauthorizedActionException;
 import com.accet.projecthub.repository.BookmarkRepository;
 import com.accet.projecthub.repository.ProjectLikeRepository;
+import com.accet.projecthub.repository.ProjectFileRepository;
 import com.accet.projecthub.repository.ProjectRepository;
 import com.accet.projecthub.repository.ProjectSpecifications;
 import com.accet.projecthub.repository.UserRepository;
@@ -25,6 +27,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,17 +45,20 @@ public class ProjectService {
     private final UserRepository userRepository;
     private final ProjectLikeRepository likeRepository;
     private final BookmarkRepository bookmarkRepository;
+    private final ProjectFileRepository fileRepository;
     private final ProjectMapper mapper;
 
     public ProjectService(ProjectRepository projectRepository,
                           UserRepository userRepository,
                           ProjectLikeRepository likeRepository,
                           BookmarkRepository bookmarkRepository,
+                          ProjectFileRepository fileRepository,
                           ProjectMapper mapper) {
         this.projectRepository = projectRepository;
         this.userRepository = userRepository;
         this.likeRepository = likeRepository;
         this.bookmarkRepository = bookmarkRepository;
+        this.fileRepository = fileRepository;
         this.mapper = mapper;
     }
 
@@ -60,10 +66,11 @@ public class ProjectService {
 
     @Transactional(readOnly = true)
     public PageResponse<ProjectDto> browse(String search, String department, String category,
-                                           String sort, int page, int size, Long currentUserId) {
+                                           String academicYear, String sort,
+                                           int page, int size, Long currentUserId) {
 
         Sort sorting = switch (sort == null ? "popular" : sort) {
-            case "newest" -> Sort.by(Sort.Direction.DESC, "year").and(Sort.by(Sort.Direction.DESC, "id"));
+            case "newest" -> Sort.by(Sort.Direction.DESC, "submittedAt").and(Sort.by(Sort.Direction.DESC, "id"));
             case "views" -> Sort.by(Sort.Direction.DESC, "viewsCount");
             case "oldest" -> Sort.by(Sort.Direction.ASC, "id");
             default -> Sort.by(Sort.Direction.DESC, "likesCount");
@@ -75,6 +82,7 @@ public class ProjectService {
                 .where(ProjectSpecifications.hasStatus(ProjectStatus.APPROVED))
                 .and(ProjectSpecifications.hasDepartment(blankToNull(department)))
                 .and(ProjectSpecifications.hasCategory(blankToNull(category)))
+                .and(ProjectSpecifications.hasAcademicYear(blankToNull(academicYear)))
                 .and(ProjectSpecifications.matchesSearch(blankToNull(search)));
 
         Page<Project> result = projectRepository.findAll(spec, pageable);
@@ -140,7 +148,8 @@ public class ProjectService {
     // --------------------------------------------------------------- write
 
     @Transactional
-    public ProjectDto create(ProjectRequest request, Long userId) {
+    public ProjectDto create(ProjectRequest request, List<MultipartFile> supportingFiles,
+                             List<MultipartFile> mediaFiles, Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
@@ -153,6 +162,7 @@ public class ProjectService {
                 .department(request.getDepartment())
                 .category(request.getCategory())
                 .year(request.getYear())
+                .academicYear(request.getAcademicYear().trim())
                 .image(request.getImage() == null || request.getImage().isBlank()
                         ? Constants.DEFAULT_IMAGE : request.getImage())
                 .status(ProjectStatus.PENDING)
@@ -167,7 +177,22 @@ public class ProjectService {
         applyTeamMembers(project, request.getTeamMembers());
 
         Project saved = projectRepository.save(project);
+        saveFiles(saved, supportingFiles, "SUPPORTING");
+        saveFiles(saved, mediaFiles, "MEDIA");
         return mapper.toDto(saved, likedIds(userId), bookmarkedIds(userId));
+    }
+
+    @Transactional(readOnly = true)
+    public ProjectFile getFile(Long projectId, Long fileId, Long currentUserId, boolean isAdmin) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found with id " + projectId));
+        boolean isOwner = currentUserId != null
+                && project.getSubmittedBy().getId().equals(currentUserId);
+        if (project.getStatus() != ProjectStatus.APPROVED && !isOwner && !isAdmin) {
+            throw new ResourceNotFoundException("Project not found with id " + projectId);
+        }
+        return fileRepository.findByIdAndProjectId(fileId, projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("File not found"));
     }
 
     @Transactional
@@ -188,6 +213,7 @@ public class ProjectService {
         project.setDepartment(request.getDepartment());
         project.setCategory(request.getCategory());
         project.setYear(request.getYear());
+        project.setAcademicYear(request.getAcademicYear().trim());
         if (request.getImage() != null && !request.getImage().isBlank()) {
             project.setImage(request.getImage());
         }
@@ -331,6 +357,30 @@ public class ProjectService {
                 .name(m.getName().trim())
                 .rollNo(m.getRollNo() == null ? null : m.getRollNo().trim().toUpperCase())
                 .build()));
+    }
+
+    private void saveFiles(Project project, List<MultipartFile> files, String fileType) {
+        if (files == null) return;
+        if (files.size() > 10) {
+            throw new BadRequestException("You can upload at most 10 " + fileType.toLowerCase() + " files");
+        }
+        files.stream().filter(file -> file != null && !file.isEmpty()).forEach(file -> {
+            if (file.getSize() > 50 * 1024 * 1024L) {
+                throw new BadRequestException("Each uploaded file must be 50 MB or smaller");
+            }
+            try {
+                ProjectFile stored = new ProjectFile();
+                stored.setProject(project);
+                stored.setFileType(fileType);
+                stored.setFileName(file.getOriginalFilename() == null ? "uploaded-file" : file.getOriginalFilename());
+                stored.setContentType(file.getContentType());
+                stored.setFileSize(file.getSize());
+                stored.setData(file.getBytes());
+                fileRepository.save(stored);
+            } catch (java.io.IOException exception) {
+                throw new BadRequestException("Could not read uploaded file");
+            }
+        });
     }
 
     private Set<Long> likedIds(Long userId) {

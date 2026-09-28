@@ -60,6 +60,7 @@ public class AuthService {
                 .rollNo(request.getRollNo().trim().toUpperCase())
                 .department(request.getDepartment())
                 .year(request.getYear())
+                .academicYear(request.getAcademicYear().trim())
                 // BCrypt hash, never the raw password
                 .password(passwordEncoder.encode(request.getPassword()))
                 .avatar(request.getAvatar() == null || request.getAvatar().isBlank()
@@ -110,6 +111,7 @@ public class AuthService {
                 .rollNo(user.getRollNo())
                 .department(user.getDepartment())
                 .year(user.getYear())
+                .academicYear(user.getAcademicYear())
                 .avatar(user.getAvatar())
                 .role(user.getRole().name())
                 .likedProjects(likeRepository.findProjectIdsByUserId(user.getId()))

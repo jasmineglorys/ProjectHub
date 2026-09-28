@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Alert from '../components/Alert';
-import { DEPARTMENTS } from '../constants';
+import { ACADEMIC_YEARS, DEPARTMENTS, isValidAcademicYear } from '../constants';
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -14,6 +14,7 @@ export default function RegisterPage() {
     rollNo: '',
     department: 'CSE',
     year: 3,
+    academicYear: '',
     password: '',
     confirmPassword: '',
   });
@@ -54,6 +55,10 @@ export default function RegisterPage() {
     else if (!/^9176\d{7}$/.test(form.rollNo.trim()))
       next.rollNo = 'Roll number must be exactly 11 digits and start with 9176';
 
+    if (!isValidAcademicYear(form.academicYear)) {
+      next.academicYear = 'Enter an academic year range like 2023-2027';
+    }
+
     if (!form.password) next.password = 'Password is required';
     else if (passwordScore < passwordRules.length)
       next.password = 'Password does not meet all requirements';
@@ -78,6 +83,7 @@ export default function RegisterPage() {
       rollNo: form.rollNo.trim(),
       department: form.department,
       year: Number(form.year),
+      academicYear: form.academicYear.trim(),
       password: form.password,
     });
     setLoading(false);
@@ -162,6 +168,22 @@ export default function RegisterPage() {
               </select>
             </label>
           </div>
+
+          <label className="field">
+            <span>Academic Year</span>
+            <input
+              type="text"
+              list="registration-academic-years"
+              value={form.academicYear}
+              onChange={(e) => update('academicYear', e.target.value)}
+              placeholder="2023-2027"
+              aria-invalid={Boolean(errors.academicYear)}
+            />
+            <datalist id="registration-academic-years">
+              {ACADEMIC_YEARS.map((year) => <option key={year} value={year} />)}
+            </datalist>
+            {errors.academicYear && <small className="field-error">{errors.academicYear}</small>}
+          </label>
 
           <label className="field">
             <span>Password</span>

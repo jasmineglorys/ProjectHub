@@ -21,6 +21,7 @@ public class ProjectDto {
     private String department;
     private String category;
     private Integer year;
+    private String academicYear;
     private String image;
     private String status;
     private Integer likes;
@@ -32,6 +33,7 @@ public class ProjectDto {
     private String submittedBy;
     private List<String> technologies;
     private List<TeamMemberDto> teamMembers;
+    private List<ProjectFileDto> files;
     private Boolean likedByMe;
     private Boolean bookmarkedByMe;
 }

@@ -93,6 +93,7 @@ export default function ProfilePage() {
             <div className="profile-meta">
               <span>🎓 {user.department}</span>
               <span>· Year {user.year}</span>
+              {user.academicYear && <span>· Academic year {user.academicYear}</span>}
               <span className="mono">· {user.rollNo}</span>
               <span>· {user.email}</span>
             </div>

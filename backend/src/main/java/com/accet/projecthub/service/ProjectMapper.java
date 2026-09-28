@@ -1,9 +1,11 @@
 package com.accet.projecthub.service;
 
 import com.accet.projecthub.dto.ProjectDto;
+import com.accet.projecthub.dto.ProjectFileDto;
 import com.accet.projecthub.dto.TeamMemberDto;
 import com.accet.projecthub.entity.Project;
 import com.accet.projecthub.repository.ProjectCommentRepository;
+import com.accet.projecthub.repository.ProjectFileRepository;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -14,9 +16,11 @@ import java.util.Set;
 public class ProjectMapper {
 
     private final ProjectCommentRepository commentRepository;
+    private final ProjectFileRepository fileRepository;
 
-    public ProjectMapper(ProjectCommentRepository commentRepository) {
+    public ProjectMapper(ProjectCommentRepository commentRepository, ProjectFileRepository fileRepository) {
         this.commentRepository = commentRepository;
+        this.fileRepository = fileRepository;
     }
 
     public ProjectDto toDto(Project project, Set<Long> likedIds, Set<Long> bookmarkedIds) {
@@ -35,6 +39,7 @@ public class ProjectMapper {
                 .department(project.getDepartment())
                 .category(project.getCategory())
                 .year(project.getYear())
+                .academicYear(project.getAcademicYear())
                 .image(project.getImage())
                 .status(project.getStatus().name())
                 .likes(project.getLikesCount())
@@ -48,6 +53,16 @@ public class ProjectMapper {
                 .submittedBy(project.getSubmittedBy().getName())
                 .technologies(new ArrayList<>(project.getTechnologies()))
                 .teamMembers(members)
+                .files(fileRepository.findByProjectIdOrderByIdAsc(project.getId()).stream()
+                    .map(file -> ProjectFileDto.builder()
+                        .id(file.getId())
+                        .fileType(file.getFileType())
+                        .fileName(file.getFileName())
+                        .contentType(file.getContentType())
+                        .fileSize(file.getFileSize())
+                        .downloadUrl("/api/projects/" + project.getId() + "/files/" + file.getId())
+                        .build())
+                    .toList())
                 .likedByMe(likedIds != null && likedIds.contains(project.getId()))
                 .bookmarkedByMe(bookmarkedIds != null && bookmarkedIds.contains(project.getId()))
                 .build();

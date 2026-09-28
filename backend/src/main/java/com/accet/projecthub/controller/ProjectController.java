@@ -9,7 +9,10 @@ import com.accet.projecthub.security.CustomUserDetails;
 import com.accet.projecthub.security.SecurityUtils;
 import com.accet.projecthub.service.ProjectService;
 import jakarta.validation.Valid;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -19,9 +22,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -41,12 +46,14 @@ public class ProjectController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String department,
             @RequestParam(required = false) String category,
+            @RequestParam(required = false) String academicYear,
             @RequestParam(defaultValue = "popular") String sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "12") int size) {
 
         return ResponseEntity.ok(projectService.browse(
-                search, department, category, sort, page, size, SecurityUtils.currentUserId()));
+            search, department, category, academicYear, sort, page, size,
+            SecurityUtils.currentUserId()));
     }
 
     /** Authenticated: the logged-in student's own submissions (any status). */
@@ -72,10 +79,34 @@ public class ProjectController {
 
     @PostMapping
     public ResponseEntity<ProjectDto> create(
-            @Valid @RequestBody ProjectRequest request,
+            @Valid @RequestPart("project") ProjectRequest request,
+            @RequestPart(value = "supportingFiles", required = false) List<MultipartFile> supportingFiles,
+            @RequestPart(value = "mediaFiles", required = false) List<MultipartFile> mediaFiles,
             @AuthenticationPrincipal CustomUserDetails principal) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(projectService.create(request, principal.getId()));
+                .body(projectService.create(request, supportingFiles, mediaFiles, principal.getId()));
+    }
+
+    @GetMapping("/{projectId}/files/{fileId}")
+    public ResponseEntity<ByteArrayResource> downloadFile(
+            @PathVariable Long projectId,
+            @PathVariable Long fileId) {
+        var file = projectService.getFile(
+            projectId, fileId, SecurityUtils.currentUserId(), SecurityUtils.isAdmin());
+        MediaType mediaType = MediaType.APPLICATION_OCTET_STREAM;
+        if (file.getContentType() != null) {
+            try {
+                mediaType = MediaType.parseMediaType(file.getContentType());
+            } catch (IllegalArgumentException ignored) {
+                // Fall back to a generic download for unknown content types.
+            }
+        }
+        return ResponseEntity.ok()
+                .contentType(mediaType)
+                .contentLength(file.getData().length)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "inline; filename=\"" + file.getFileName().replace("\"", "") + "\"")
+                .body(new ByteArrayResource(file.getData()));
     }
 
     @PutMapping("/{id}")

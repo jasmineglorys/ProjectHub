@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
@@ -38,6 +39,10 @@ public class ProjectRequest {
     @Min(value = 2000, message = "Project year must be 2000 or later")
     @Max(value = 2100, message = "Project year is not valid")
     private Integer year;
+
+    @NotBlank(message = "Academic year is required")
+    @Pattern(regexp = "[0-9]{4}-[0-9]{4}", message = "Academic year must use the format YYYY-YYYY, e.g. 2023-2027")
+    private String academicYear;
 
     @Size(max = 200)
     private String image;

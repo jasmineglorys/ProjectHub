@@ -76,6 +76,7 @@ public class SecurityConfig {
                         // These two are more specific than /api/projects/* and must be listed first
                         .requestMatchers(HttpMethod.GET, "/api/projects/my",
                                 "/api/projects/bookmarked").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/projects/*/files/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/projects", "/api/projects/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/projects/*/comments").permitAll()
                         // Admin-only

@@ -20,6 +20,7 @@ public class UserDto {
     private String rollNo;
     private String department;
     private Integer year;
+    private String academicYear;
     private String avatar;
     private String role;
     private List<Long> likedProjects;

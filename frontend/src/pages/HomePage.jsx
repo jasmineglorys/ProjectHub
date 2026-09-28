@@ -31,7 +31,7 @@ export default function HomePage() {
       setError('');
       try {
         const [projectsRes, statsRes] = await Promise.all([
-          browseProjects({ sort: 'popular', page: 0, size: 6 }),
+          browseProjects({ sort: 'newest', page: 0, size: 6 }),
           getDepartmentStats(),
         ]);
         if (cancelled) return;
@@ -98,8 +98,8 @@ export default function HomePage() {
         <Alert message={error} onClose={() => setError('')} />
         <div className="section-head">
           <div>
-            <h2>Featured Projects</h2>
-            <p className="muted">The most liked work from across the campus.</p>
+            <h2>Recently Added Projects</h2>
+            <p className="muted">The latest approved projects from across the campus.</p>
           </div>
           <Link to="/browse" className="link-gold">
             View all →
@@ -107,7 +107,7 @@ export default function HomePage() {
         </div>
 
         {loading ? (
-          <Loader label="Loading featured projects…" />
+          <Loader label="Loading recent projects…" />
         ) : featured.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">📂</div>

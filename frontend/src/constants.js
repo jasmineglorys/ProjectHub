@@ -59,3 +59,10 @@ export function imageUrl(photoId, width = 600, height = 340) {
 }
 
 export const PROJECT_YEARS = [2026, 2025, 2024, 2023, 2022, 2021];
+
+export const ACADEMIC_YEARS = ['2022-2026', '2023-2027', '2024-2028', '2025-2029'];
+
+export function isValidAcademicYear(value) {
+  const match = /^(\d{4})-(\d{4})$/.exec(value.trim());
+  return Boolean(match && Number(match[1]) < Number(match[2]));
+}

@@ -49,6 +49,9 @@ public class Project {
     @Column(name = "project_year", nullable = false)
     private Integer year;
 
+    @Column(name = "academic_year", length = 9)
+    private String academicYear;
+
     @Column(length = 200)
     private String image;
 

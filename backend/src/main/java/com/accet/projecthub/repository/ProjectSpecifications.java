@@ -34,6 +34,11 @@ public final class ProjectSpecifications {
                 category == null ? null : cb.equal(root.get("category"), category);
     }
 
+    public static Specification<Project> hasAcademicYear(String academicYear) {
+        return (root, query, cb) ->
+                academicYear == null ? null : cb.equal(root.get("academicYear"), academicYear);
+    }
+
     /** Matches title, description, any technology, or any team member name. */
     public static Specification<Project> matchesSearch(String search) {
         return (root, query, cb) -> {

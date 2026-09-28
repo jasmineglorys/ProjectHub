@@ -6,7 +6,12 @@ import useProjectActions from '../hooks/useProjectActions';
 import ProjectCard from '../components/ProjectCard';
 import Loader from '../components/Loader';
 import Alert from '../components/Alert';
-import { DEPARTMENTS, CATEGORIES } from '../constants';
+import {
+  DEPARTMENTS,
+  CATEGORIES,
+  ACADEMIC_YEARS,
+  isValidAcademicYear,
+} from '../constants';
 
 const PAGE_SIZE = 12;
 
@@ -16,6 +21,7 @@ export default function BrowsePage() {
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [department, setDepartment] = useState(searchParams.get('department') || '');
   const [category, setCategory] = useState(searchParams.get('category') || '');
+  const [academicYear, setAcademicYear] = useState(searchParams.get('academicYear') || '');
   const [sort, setSort] = useState(searchParams.get('sort') || 'popular');
   const [page, setPage] = useState(0);
 
@@ -33,23 +39,31 @@ export default function BrowsePage() {
 
   // Debounce the text search so we don't fire a request per keystroke.
   const [debouncedSearch, setDebouncedSearch] = useState(search);
+  const [debouncedAcademicYear, setDebouncedAcademicYear] = useState(academicYear);
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 400);
     return () => clearTimeout(timer);
   }, [search]);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedAcademicYear(academicYear), 400);
+    return () => clearTimeout(timer);
+  }, [academicYear]);
 
   useEffect(() => {
     setPage(0);
-  }, [debouncedSearch, department, category, sort]);
+  }, [debouncedSearch, department, category, debouncedAcademicYear, sort]);
 
   useEffect(() => {
     const params = {};
     if (debouncedSearch) params.search = debouncedSearch;
     if (department) params.department = department;
     if (category) params.category = category;
+    if (isValidAcademicYear(debouncedAcademicYear)) {
+      params.academicYear = debouncedAcademicYear.trim();
+    }
     if (sort !== 'popular') params.sort = sort;
     setSearchParams(params, { replace: true });
-  }, [debouncedSearch, department, category, sort, setSearchParams]);
+  }, [debouncedSearch, department, category, debouncedAcademicYear, sort, setSearchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,6 +76,9 @@ export default function BrowsePage() {
           search: debouncedSearch || undefined,
           department: department || undefined,
           category: category || undefined,
+          academicYear: isValidAcademicYear(debouncedAcademicYear)
+            ? debouncedAcademicYear.trim()
+            : undefined,
           sort,
           page,
           size: PAGE_SIZE,
@@ -81,15 +98,19 @@ export default function BrowsePage() {
     return () => {
       cancelled = true;
     };
-  }, [debouncedSearch, department, category, sort, page]);
+  }, [debouncedSearch, department, category, debouncedAcademicYear, sort, page]);
 
   function clearAll() {
     setSearch('');
     setDepartment('');
     setCategory('');
+    setAcademicYear('');
+    setDebouncedAcademicYear('');
   }
 
-  const hasFilters = Boolean(search || department || category);
+  const hasFilters = Boolean(
+    search || department || category || isValidAcademicYear(debouncedAcademicYear),
+  );
 
   return (
     <div>
@@ -126,6 +147,20 @@ export default function BrowsePage() {
               </option>
             ))}
           </select>
+          <input
+            type="text"
+            list="browse-academic-years"
+            placeholder="Academic year (2023-2027)"
+            aria-label="Academic year range"
+            aria-invalid={academicYear !== '' && !isValidAcademicYear(academicYear)}
+            value={academicYear}
+            onChange={(e) => setAcademicYear(e.target.value)}
+          />
+          <datalist id="browse-academic-years">
+            {ACADEMIC_YEARS.map((year) => (
+              <option key={year} value={year}>{year}</option>
+            ))}
+          </datalist>
           <select value={sort} onChange={(e) => setSort(e.target.value)}>
             <option value="popular">Most Liked</option>
             <option value="views">Most Viewed</option>
@@ -133,12 +168,25 @@ export default function BrowsePage() {
           </select>
         </div>
 
+        {academicYear !== '' && !isValidAcademicYear(academicYear) && (
+          <small className="field-error">Enter an academic year range like 2023-2027.</small>
+        )}
+
         {hasFilters && (
           <div className="filter-chips">
             <span className="muted small">Active filters:</span>
             {search && <Chip label={`"${search}"`} onRemove={() => setSearch('')} />}
             {department && <Chip label={department} onRemove={() => setDepartment('')} />}
             {category && <Chip label={category} onRemove={() => setCategory('')} />}
+            {isValidAcademicYear(debouncedAcademicYear) && (
+              <Chip
+                label={`Academic year ${debouncedAcademicYear}`}
+                onRemove={() => {
+                  setAcademicYear('');
+                  setDebouncedAcademicYear('');
+                }}
+              />
+            )}
             <button type="button" className="link-danger" onClick={clearAll}>
               Clear all
             </button>

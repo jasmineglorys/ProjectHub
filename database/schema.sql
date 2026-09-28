@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS users (
     roll_no       VARCHAR(30)  DEFAULT NULL,
     department    VARCHAR(30)  DEFAULT NULL,
     study_year    INT          DEFAULT NULL,
+    academic_year VARCHAR(9)   DEFAULT NULL,
     password_hash VARCHAR(100) NOT NULL,          -- BCrypt hash, never plain text
     avatar        VARCHAR(120) DEFAULT NULL,
     role          VARCHAR(20)  NOT NULL DEFAULT 'STUDENT',
@@ -44,6 +45,7 @@ CREATE TABLE IF NOT EXISTS projects (
     department   VARCHAR(40)   NOT NULL,
     category     VARCHAR(40)   NOT NULL,
     project_year INT           NOT NULL,
+    academic_year VARCHAR(9)   DEFAULT NULL,
     image        VARCHAR(200)  DEFAULT NULL,
     status       VARCHAR(20)   NOT NULL DEFAULT 'PENDING',
     likes_count  INT           NOT NULL DEFAULT 0,
@@ -65,7 +67,7 @@ CREATE TABLE IF NOT EXISTS projects (
 CREATE TABLE IF NOT EXISTS project_technologies (
     project_id BIGINT      NOT NULL,
     technology VARCHAR(60) NOT NULL,
-    KEY idx_tech_project (project_id),
+    PRIMARY KEY (project_id, technology),
     CONSTRAINT fk_tech_project FOREIGN KEY (project_id)
         REFERENCES projects (id) ON DELETE CASCADE
 ) ENGINE = InnoDB;
@@ -85,7 +87,25 @@ CREATE TABLE IF NOT EXISTS team_members (
 ) ENGINE = InnoDB;
 
 -- ------------------------------------------------------------
--- 5. project_likes  (a user may like a project once)
+-- 5. project_files  (uploaded file metadata and bytes)
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS project_files (
+    id           BIGINT        NOT NULL AUTO_INCREMENT,
+    project_id   BIGINT        NOT NULL,
+    file_type    VARCHAR(20)   NOT NULL,
+    file_name    VARCHAR(255)  NOT NULL,
+    content_type VARCHAR(150)  DEFAULT NULL,
+    file_size    BIGINT        NOT NULL,
+    file_data    LONGBLOB      NOT NULL,
+    created_at   DATETIME(6)   NOT NULL,
+    PRIMARY KEY (id),
+    KEY idx_project_files_project (project_id),
+    CONSTRAINT fk_project_files_project FOREIGN KEY (project_id)
+        REFERENCES projects (id) ON DELETE CASCADE
+) ENGINE = InnoDB;
+
+-- ------------------------------------------------------------
+-- 6. project_likes  (a user may like a project once)
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS project_likes (
     id         BIGINT      NOT NULL AUTO_INCREMENT,
@@ -101,7 +121,7 @@ CREATE TABLE IF NOT EXISTS project_likes (
 ) ENGINE = InnoDB;
 
 -- ------------------------------------------------------------
--- 6. bookmarks  (a user may save a project once)
+-- 7. bookmarks  (a user may save a project once)
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS bookmarks (
     id         BIGINT      NOT NULL AUTO_INCREMENT,
@@ -117,7 +137,7 @@ CREATE TABLE IF NOT EXISTS bookmarks (
 ) ENGINE = InnoDB;
 
 -- ------------------------------------------------------------
--- 7. project_comments
+-- 8. project_comments
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS project_comments (
     id         BIGINT        NOT NULL AUTO_INCREMENT,
@@ -134,7 +154,7 @@ CREATE TABLE IF NOT EXISTS project_comments (
 ) ENGINE = InnoDB;
 
 -- ------------------------------------------------------------
--- 8. notifications
+-- 9. notifications
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS notifications (
     id           BIGINT        NOT NULL AUTO_INCREMENT,
