@@ -48,12 +48,19 @@ Then change `spring.jpa.hibernate.ddl-auto=update` to `validate` in
 
 ## 3. Backend — Spring Boot
 
-Edit `backend/src/main/resources/application.properties` and set your MySQL credentials:
+Set your MySQL credentials before starting the backend. In PowerShell:
+
+```powershell
+$env:DB_USERNAME = "root"
+$env:DB_PASSWORD = "your-mysql-password"
+```
+
+The backend reads these values from the environment:
 
 ```properties
 spring.datasource.url=jdbc:mysql://localhost:3306/projecthub_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Kolkata
-spring.datasource.username=root
-spring.datasource.password=root
+spring.datasource.username=${DB_USERNAME:root}
+spring.datasource.password=${DB_PASSWORD:}
 spring.jpa.hibernate.ddl-auto=update
 spring.jpa.show-sql=true
 ```
