@@ -22,6 +22,9 @@ import com.accet.projecthub.repository.ProjectRepository;
 import com.accet.projecthub.repository.ProjectSpecifications;
 import com.accet.projecthub.repository.UserRepository;
 import com.accet.projecthub.util.Constants;
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -70,7 +73,7 @@ public class ProjectService {
                                            int page, int size, Long currentUserId) {
 
         Sort sorting = switch (sort == null ? "popular" : sort) {
-            case "newest" -> Sort.by(Sort.Direction.DESC, "submittedAt").and(Sort.by(Sort.Direction.DESC, "id"));
+            case "newest" -> Sort.by(Sort.Direction.DESC, "year").and(Sort.by(Sort.Direction.DESC, "id"));
             case "views" -> Sort.by(Sort.Direction.DESC, "viewsCount");
             case "oldest" -> Sort.by(Sort.Direction.ASC, "id");
             default -> Sort.by(Sort.Direction.DESC, "likesCount");
@@ -149,7 +152,7 @@ public class ProjectService {
 
     @Transactional
     public ProjectDto create(ProjectRequest request, List<MultipartFile> supportingFiles,
-                             List<MultipartFile> mediaFiles, Long userId) {
+                             List<MultipartFile> mediaFiles, MultipartFile coverImage, Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
@@ -160,9 +163,8 @@ public class ProjectService {
                 .description(request.getDescription().trim())
                 .deployLink(blankToNull(request.getDeployLink()))
                 .department(request.getDepartment())
-                .category(request.getCategory())
+                .category(request.getCategory().trim())
                 .year(request.getYear())
-                .academicYear(request.getAcademicYear().trim())
                 .image(request.getImage() == null || request.getImage().isBlank()
                         ? Constants.DEFAULT_IMAGE : request.getImage())
                 .status(ProjectStatus.PENDING)
@@ -177,6 +179,7 @@ public class ProjectService {
         applyTeamMembers(project, request.getTeamMembers());
 
         Project saved = projectRepository.save(project);
+        saveCoverImage(saved, coverImage);
         saveFiles(saved, supportingFiles, "SUPPORTING");
         saveFiles(saved, mediaFiles, "MEDIA");
         return mapper.toDto(saved, likedIds(userId), bookmarkedIds(userId));
@@ -184,15 +187,15 @@ public class ProjectService {
 
     @Transactional(readOnly = true)
     public ProjectFile getFile(Long projectId, Long fileId, Long currentUserId, boolean isAdmin) {
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new ResourceNotFoundException("Project not found with id " + projectId));
+        ProjectFile file = fileRepository.findByIdAndProjectId(fileId, projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("File not found"));
+        Project project = file.getProject();
         boolean isOwner = currentUserId != null
                 && project.getSubmittedBy().getId().equals(currentUserId);
         if (project.getStatus() != ProjectStatus.APPROVED && !isOwner && !isAdmin) {
-            throw new ResourceNotFoundException("Project not found with id " + projectId);
+            throw new ResourceNotFoundException("File not found");
         }
-        return fileRepository.findByIdAndProjectId(fileId, projectId)
-                .orElseThrow(() -> new ResourceNotFoundException("File not found"));
+        return file;
     }
 
     @Transactional
@@ -211,9 +214,8 @@ public class ProjectService {
         project.setDescription(request.getDescription().trim());
         project.setDeployLink(blankToNull(request.getDeployLink()));
         project.setDepartment(request.getDepartment());
-        project.setCategory(request.getCategory());
+        project.setCategory(request.getCategory().trim());
         project.setYear(request.getYear());
-        project.setAcademicYear(request.getAcademicYear().trim());
         if (request.getImage() != null && !request.getImage().isBlank()) {
             project.setImage(request.getImage());
         }
@@ -324,8 +326,14 @@ public class ProjectService {
         if (!Constants.DEPARTMENTS.contains(request.getDepartment())) {
             throw new BadRequestException("Invalid department: " + request.getDepartment());
         }
-        if (!Constants.CATEGORIES.contains(request.getCategory())) {
-            throw new BadRequestException("Invalid category: " + request.getCategory());
+        List<String> departmentDomains = Constants.DEPARTMENT_DOMAINS.get(request.getDepartment());
+        if (!request.isCustomCategory()
+                && (departmentDomains == null || !departmentDomains.contains(request.getCategory()))) {
+            throw new BadRequestException("Invalid project domain for department "
+                    + request.getDepartment() + ": " + request.getCategory());
+        }
+        if (request.isCustomCategory() && request.getCategory().isBlank()) {
+            throw new BadRequestException("Enter a project domain");
         }
         if (("CSE".equals(request.getDepartment()) || "IT".equals(request.getDepartment()))
                 && (request.getDeployLink() == null || request.getDeployLink().isBlank())) {
@@ -381,6 +389,43 @@ public class ProjectService {
                 throw new BadRequestException("Could not read uploaded file");
             }
         });
+    }
+
+    private void saveCoverImage(Project project, MultipartFile file) {
+        if (file == null || file.isEmpty()) return;
+        if (file.getSize() > 5 * 1024 * 1024L) {
+            throw new BadRequestException("Cover image must be 5 MB or smaller");
+        }
+        String contentType = file.getContentType();
+        if (!"image/jpeg".equals(contentType) && !"image/png".equals(contentType)) {
+            throw new BadRequestException("Cover image must be a JPEG or PNG file");
+        }
+        try {
+            byte[] data = file.getBytes();
+            boolean validSignature = "image/png".equals(contentType)
+                    ? data.length >= 8 && data[0] == (byte) 0x89 && data[1] == 0x50
+                        && data[2] == 0x4e && data[3] == 0x47
+                    : data.length >= 3 && data[0] == (byte) 0xff
+                        && data[1] == (byte) 0xd8 && data[2] == (byte) 0xff;
+            if (!validSignature) {
+                throw new BadRequestException("Cover image content does not match its file type");
+            }
+            BufferedImage image = ImageIO.read(new ByteArrayInputStream(data));
+            if (image == null || image.getWidth() != 1200 || image.getHeight() != 630) {
+                throw new BadRequestException("Cover image must be exactly 1200 x 630 pixels");
+            }
+
+            ProjectFile stored = new ProjectFile();
+            stored.setProject(project);
+            stored.setFileType("COVER");
+            stored.setFileName("project-cover." + ("image/png".equals(contentType) ? "png" : "jpg"));
+            stored.setContentType(contentType);
+            stored.setFileSize(file.getSize());
+            stored.setData(data);
+            fileRepository.save(stored);
+        } catch (java.io.IOException exception) {
+            throw new BadRequestException("Could not read cover image");
+        }
     }
 
     private Set<Long> likedIds(Long userId) {

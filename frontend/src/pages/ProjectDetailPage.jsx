@@ -12,7 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import useProjectActions from '../hooks/useProjectActions';
 import Loader from '../components/Loader';
 import Alert from '../components/Alert';
-import { imageUrl } from '../constants';
+import { projectImageUrl } from '../constants';
 
 export default function ProjectDetailPage() {
   const { id } = useParams();
@@ -176,10 +176,12 @@ export default function ProjectDetailPage() {
     );
   }
 
+  const projectFiles = project.files?.filter((file) => file.fileType !== 'COVER') || [];
+
   return (
     <div>
       <div className="detail-hero">
-        <img src={imageUrl(project.image, 1400, 600)} alt={project.title} />
+        <img src={projectImageUrl(project, 1400, 600)} alt={project.title} />
         <div className="detail-hero-overlay" />
         <button type="button" className="back-btn" onClick={() => navigate(-1)}>
           ← Back
@@ -243,11 +245,11 @@ export default function ProjectDetailPage() {
             </ul>
           </section>
 
-          {project.files?.length > 0 && (
+          {projectFiles.length > 0 && (
             <section className="panel">
               <h2>Project files</h2>
               <ul className="project-file-list">
-                {project.files.map((file) => (
+                {projectFiles.map((file) => (
                   <li key={file.id} className="project-file-item">
                     <div className="project-file-meta">
                       <strong>{file.fileName}</strong>

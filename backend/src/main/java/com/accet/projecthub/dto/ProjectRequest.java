@@ -32,8 +32,11 @@ public class ProjectRequest {
     @NotBlank(message = "Department is required")
     private String department;
 
-    @NotBlank(message = "Category is required")
+    @NotBlank(message = "Project domain is required")
+    @Size(max = 40, message = "Project domain must be 40 characters or fewer")
     private String category;
+
+    private boolean customCategory;
 
     @NotNull(message = "Project year is required")
     @Min(value = 2000, message = "Project year must be 2000 or later")

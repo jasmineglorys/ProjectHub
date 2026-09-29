@@ -39,7 +39,6 @@ public class ProjectMapper {
                 .department(project.getDepartment())
                 .category(project.getCategory())
                 .year(project.getYear())
-                .academicYear(project.getAcademicYear())
                 .image(project.getImage())
                 .status(project.getStatus().name())
                 .likes(project.getLikesCount())

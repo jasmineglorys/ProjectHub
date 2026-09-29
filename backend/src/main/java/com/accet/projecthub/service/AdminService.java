@@ -52,6 +52,7 @@ public class AdminService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Project not found with id " + projectId));
 
+        ProjectStatus previousStatus = project.getStatus();
         ProjectStatus nextStatus = parseStatus(status);
         project.setStatus(nextStatus);
         Project saved = projectRepository.save(project);
@@ -61,6 +62,9 @@ public class AdminService {
             "Your project '" + saved.getTitle() + "' was "
                 + nextStatus.name().toLowerCase() + ".",
             null);
+        if (previousStatus != ProjectStatus.APPROVED && nextStatus == ProjectStatus.APPROVED) {
+            notificationService.notifyNewProject(saved);
+        }
         return mapper.toDto(saved);
     }
 

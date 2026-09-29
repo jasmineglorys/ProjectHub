@@ -11,6 +11,9 @@ public class NotificationDto {
     private String message;
     private Long projectId;
     private String projectTitle;
+    private String projectDescription;
+    private String projectDepartment;
+    private String projectCategory;
     private boolean read;
     private String createdAt;
 }

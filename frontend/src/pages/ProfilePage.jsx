@@ -170,17 +170,17 @@ export default function ProfilePage() {
           />
         )}
 
-        {notifications.length > 0 && (
-          <section className="panel notification-panel">
-            <div className="section-heading-row">
-              <div>
-                <h2>Notifications</h2>
-                <p className="muted small">Updates about your projects and comments.</p>
-              </div>
-              <span className="badge-muted">
-                {notifications.filter((notification) => !notification.read).length} unread
-              </span>
+        <section className="panel notification-panel">
+          <div className="section-heading-row">
+            <div>
+              <h2>Notifications</h2>
+              <p className="muted small">Updates about posted projects, your projects, and comments.</p>
             </div>
+            <span className="badge-muted">
+              {notifications.filter((notification) => !notification.read).length} unread
+            </span>
+          </div>
+          {notifications.length > 0 ? (
             <div className="notification-list">
               {notifications.map((notification) => (
                 <div
@@ -188,7 +188,20 @@ export default function ProfilePage() {
                   className={notification.read ? 'notification-item' : 'notification-item unread'}
                 >
                   <div>
-                    <strong>{notification.message}</strong>
+                    {notification.type === 'NEW_PROJECT' ? (
+                      <div className="notification-project-details">
+                        <strong>New project posted</strong>
+                        <p className="notification-project-title">{notification.projectTitle}</p>
+                        <small className="muted">
+                          {notification.projectDepartment} · {notification.projectCategory}
+                        </small>
+                        <p className="notification-project-description">
+                          {notification.projectDescription}
+                        </p>
+                      </div>
+                    ) : (
+                      <strong>{notification.message}</strong>
+                    )}
                     <small className="muted">{formatNotificationDate(notification.createdAt)}</small>
                   </div>
                   <div className="notification-actions">
@@ -221,8 +234,10 @@ export default function ProfilePage() {
                 </div>
               ))}
             </div>
-          </section>
-        )}
+          ) : (
+            <p className="muted notification-empty">No notifications yet.</p>
+          )}
+        </section>
       </div>
     </div>
   );

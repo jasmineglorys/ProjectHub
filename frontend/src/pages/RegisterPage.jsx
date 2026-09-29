@@ -99,7 +99,6 @@ export default function RegisterPage() {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-head">
-          <span className="brand-mark large">AP</span>
           <h1>Create your account</h1>
           <p>Join ProjectHub and share your work</p>
         </div>
@@ -124,7 +123,7 @@ export default function RegisterPage() {
               type="email"
               value={form.email}
               onChange={(e) => update('email', e.target.value)}
-              placeholder="you@student.accet.ac.in"
+              placeholder="abc@gmail.com"
             />
             {errors.email && <small className="field-error">{errors.email}</small>}
           </label>
@@ -171,17 +170,18 @@ export default function RegisterPage() {
 
           <label className="field">
             <span>Academic Year</span>
-            <input
-              type="text"
-              list="registration-academic-years"
+            <select
               value={form.academicYear}
               onChange={(e) => update('academicYear', e.target.value)}
-              placeholder="2023-2027"
               aria-invalid={Boolean(errors.academicYear)}
-            />
-            <datalist id="registration-academic-years">
-              {ACADEMIC_YEARS.map((year) => <option key={year} value={year} />)}
-            </datalist>
+            >
+              <option value="">Select academic year</option>
+              {ACADEMIC_YEARS.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
             {errors.academicYear && <small className="field-error">{errors.academicYear}</small>}
           </label>
 

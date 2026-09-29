@@ -122,6 +122,7 @@ export default function HomePage() {
                 project={project}
                 onLike={like}
                 onBookmark={bookmark}
+                showAcademicInfo
               />
             ))}
           </div>

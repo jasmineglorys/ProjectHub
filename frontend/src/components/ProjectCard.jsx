@@ -1,14 +1,20 @@
 import { Link } from 'react-router-dom';
-import { imageUrl } from '../constants';
+import { projectImageUrl } from '../constants';
 
-export default function ProjectCard({ project, onLike, onBookmark, showStatus = false }) {
+export default function ProjectCard({
+  project,
+  onLike,
+  onBookmark,
+  showStatus = false,
+  showAcademicInfo = false,
+}) {
   const liked = project.likedByMe;
   const saved = project.bookmarkedByMe;
 
   return (
     <article className="project-card">
       <Link to={`/projects/${project.id}`} className="card-image-link">
-        <img src={imageUrl(project.image, 600, 320)} alt={project.title} loading="lazy" />
+        <img src={projectImageUrl(project, 600, 320)} alt={project.title} loading="lazy" />
         <span className={`dept-badge dept-${project.department.toLowerCase()}`}>
           {project.department}
         </span>
@@ -42,10 +48,18 @@ export default function ProjectCard({ project, onLike, onBookmark, showStatus = 
         </div>
 
         <div className="card-footer">
-          <span className="meta-small">
-            {project.teamMembers.length} member{project.teamMembers.length !== 1 ? 's' : ''} ·{' '}
-            {project.year}
-          </span>
+          <div className="card-project-meta">
+            <span className="meta-small">
+              {project.teamMembers.length} member{project.teamMembers.length !== 1 ? 's' : ''} ·{' '}
+              {project.year}
+            </span>
+            {showAcademicInfo && project.submittedAt && (
+              <span className="meta-small">Uploaded {formatDate(project.submittedAt)}</span>
+            )}
+            {showAcademicInfo && project.academicYear && (
+              <span className="meta-small">Student academic year {project.academicYear}</span>
+            )}
+          </div>
           <div className="card-actions">
             <button
               type="button"
@@ -68,4 +82,9 @@ export default function ProjectCard({ project, onLike, onBookmark, showStatus = 
       </div>
     </article>
   );
+}
+
+function formatDate(value) {
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
 }

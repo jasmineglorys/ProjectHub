@@ -82,9 +82,11 @@ public class ProjectController {
             @Valid @RequestPart("project") ProjectRequest request,
             @RequestPart(value = "supportingFiles", required = false) List<MultipartFile> supportingFiles,
             @RequestPart(value = "mediaFiles", required = false) List<MultipartFile> mediaFiles,
+            @RequestPart(value = "coverImage", required = false) MultipartFile coverImage,
             @AuthenticationPrincipal CustomUserDetails principal) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(projectService.create(request, supportingFiles, mediaFiles, principal.getId()));
+                .body(projectService.create(request, supportingFiles, mediaFiles,
+                        coverImage, principal.getId()));
     }
 
     @GetMapping("/{projectId}/files/{fileId}")

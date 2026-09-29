@@ -47,7 +47,6 @@ export default function LoginPage() {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-head">
-          <span className="brand-mark large">AP</span>
           <h1>ProjectHub — ACCET</h1>
           <p>Sign in to submit, like and save projects</p>
         </div>
@@ -61,7 +60,7 @@ export default function LoginPage() {
               type="email"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
-              placeholder="you@student.accet.ac.in"
+              placeholder="abc@gmail.com"
               autoComplete="email"
             />
             {errors.email && <small className="field-error">{errors.email}</small>}
@@ -86,12 +85,6 @@ export default function LoginPage() {
           <p className="auth-switch">
             New here? <Link to="/register">Create an account</Link>
           </p>
-
-          <div className="demo-box">
-            <strong>Demo accounts</strong>
-            <span>Student — arjun@student.accet.ac.in / student123</span>
-            <span>Admin — admin@accet.ac.in / admin@2024</span>
-          </div>
         </form>
       </div>
     </div>
