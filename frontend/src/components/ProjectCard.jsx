@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { imageUrl } from '../constants';
+import ProjectCoverImage from './ProjectCoverImage';
 
 export default function ProjectCard({ project, onLike, onBookmark, showStatus = false }) {
   const liked = project.likedByMe;
@@ -8,7 +8,7 @@ export default function ProjectCard({ project, onLike, onBookmark, showStatus = 
   return (
     <article className="project-card">
       <Link to={`/projects/${project.id}`} className="card-image-link">
-        <img src={imageUrl(project.image, 600, 320)} alt={project.title} loading="lazy" />
+        <ProjectCoverImage project={project} width={600} height={320} />
         <span className={`dept-badge dept-${project.department.toLowerCase()}`}>
           {project.department}
         </span>
@@ -43,9 +43,9 @@ export default function ProjectCard({ project, onLike, onBookmark, showStatus = 
 
         <div className="card-footer">
           <span className="meta-small">
-            {project.teamMembers.length} member{project.teamMembers.length !== 1 ? 's' : ''} ·{' '}
-            {project.year}
+            {project.teamMembers.length} member{project.teamMembers.length !== 1 ? 's' : ''} · {project.year}
           </span>
+          <span className="meta-small">{project.views} views</span>
           <div className="card-actions">
             <button
               type="button"

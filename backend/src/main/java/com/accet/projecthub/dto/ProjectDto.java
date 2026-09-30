@@ -36,4 +36,8 @@ public class ProjectDto {
     private List<ProjectFileDto> files;
     private Boolean likedByMe;
     private Boolean bookmarkedByMe;
+
+    public String getCoverImage() {
+        return image;
+    }
 }

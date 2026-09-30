@@ -17,5 +17,5 @@ public final class Constants {
     );
 
     public static final String DEFAULT_AVATAR = "photo-1535713875002-d1d0cf377fde";
-    public static final String DEFAULT_IMAGE = "photo-1517694712202-14dd9538aa97";
+        public static final String DEFAULT_IMAGE = "photo-1518770660439-4636190af475";
 }

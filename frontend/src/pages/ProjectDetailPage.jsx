@@ -12,7 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import useProjectActions from '../hooks/useProjectActions';
 import Loader from '../components/Loader';
 import Alert from '../components/Alert';
-import { imageUrl } from '../constants';
+import ProjectCoverImage from '../components/ProjectCoverImage';
 
 export default function ProjectDetailPage() {
   const { id } = useParams();
@@ -179,7 +179,7 @@ export default function ProjectDetailPage() {
   return (
     <div>
       <div className="detail-hero">
-        <img src={imageUrl(project.image, 1400, 600)} alt={project.title} />
+        <ProjectCoverImage project={project} width={1400} height={600} />
         <div className="detail-hero-overlay" />
         <button type="button" className="back-btn" onClick={() => navigate(-1)}>
           ← Back

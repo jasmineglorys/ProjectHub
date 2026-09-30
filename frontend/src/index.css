@@ -532,6 +532,10 @@ img {
   object-fit: cover;
 }
 
+.project-cover-image.is-loading {
+  opacity: 0.72;
+}
+
 .dept-badge,
 .badge-light,
 .status-badge,

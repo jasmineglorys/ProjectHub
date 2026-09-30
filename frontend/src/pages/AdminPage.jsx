@@ -9,7 +9,7 @@ import {
 import { extractError } from '../api/axiosConfig';
 import Loader from '../components/Loader';
 import Alert from '../components/Alert';
-import { imageUrl } from '../constants';
+import ProjectCoverImage from '../components/ProjectCoverImage';
 
 const TABS = [
   { id: 'PENDING', label: '⏳ Pending' },
@@ -190,7 +190,7 @@ export default function AdminPage() {
                   <div className="admin-list">
                     {visible.map((p) => (
                       <div key={p.id} className="admin-row">
-                        <img src={imageUrl(p.image, 160, 100)} alt={p.title} />
+                        <ProjectCoverImage project={p} width={160} height={100} />
                         <div className="admin-row-body">
                           <h3>
                             <Link to={`/projects/${p.id}`}>{p.title}</Link>

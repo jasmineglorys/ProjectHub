@@ -47,6 +47,9 @@ public class ProjectRequest {
     @Size(max = 200)
     private String image;
 
+    @Size(max = 200)
+    private String coverImage;
+
     @Size(max = 10)
     private List<String> supportingFileNames = new ArrayList<>();
 

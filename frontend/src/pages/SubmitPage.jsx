@@ -4,14 +4,14 @@ import { createProject } from '../api/projectApi';
 import { extractError } from '../api/axiosConfig';
 import { useAuth } from '../context/AuthContext';
 import Alert from '../components/Alert';
+import ProjectCoverImage from '../components/ProjectCoverImage';
 import {
   ACADEMIC_YEARS,
   CATEGORIES,
   DEPARTMENTS,
   PROJECT_YEARS,
-  SAMPLE_IMAGES,
-  imageUrl,
   isValidAcademicYear,
+  resolveProjectCoverImage,
 } from '../constants';
 
 const DEPLOY_LINK_REQUIRED_DEPARTMENTS = ['CSE', 'IT'];
@@ -36,7 +36,6 @@ export default function SubmitPage() {
     year: new Date().getFullYear(),
     academicYear: user?.academicYear || '',
     technologies: '',
-    image: SAMPLE_IMAGES[0],
     supportingFiles: [],
     mediaFiles: [],
     teamMembers: [{ name: user?.name || '', rollNo: user?.rollNo || '' }],
@@ -44,6 +43,12 @@ export default function SubmitPage() {
 
   const deployLinkRequired = DEPLOY_LINK_REQUIRED_DEPARTMENTS.includes(form.department);
   const showOptionalResources = OPTIONAL_RESOURCE_DEPARTMENTS.includes(form.department);
+  const coverImage = resolveProjectCoverImage({
+    category: form.category,
+    technologies: form.technologies.split(',').map((technology) => technology.trim()),
+    title: form.title,
+    description: form.description,
+  });
 
   function update(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -133,7 +138,7 @@ export default function SubmitPage() {
       category: form.category,
       year: Number(form.year),
       academicYear: form.academicYear.trim(),
-      image: form.image,
+      coverImage,
       technologies: form.technologies
         .split(',')
         .map((t) => t.trim())
@@ -394,26 +399,16 @@ export default function SubmitPage() {
 
           {step === 3 && (
             <div className="form-step">
-              <h2 className="step-title">Cover image</h2>
-              <p className="muted small">Pick a representative image for your project.</p>
-
-              <div className="image-picker">
-                {SAMPLE_IMAGES.map((img) => (
-                  <button
-                    type="button"
-                    key={img}
-                    className={form.image === img ? 'image-option selected' : 'image-option'}
-                    onClick={() => update('image', img)}
-                  >
-                    <img src={imageUrl(img, 300, 150)} alt="Cover option" />
-                  </button>
-                ))}
-              </div>
+              <h2 className="step-title">Project cover</h2>
 
               <div className="preview-box">
                 <strong className="preview-label">SUBMISSION PREVIEW</strong>
                 <div className="preview-body">
-                  <img src={imageUrl(form.image, 200, 120)} alt="Preview" />
+                  <ProjectCoverImage
+                    project={{ title: form.title, coverImage }}
+                    width={200}
+                    height={120}
+                  />
                   <div>
                     <strong>{form.title || 'Your project title'}</strong>
                     <p className="muted small">

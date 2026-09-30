@@ -47,19 +47,22 @@ public class ProjectService {
     private final BookmarkRepository bookmarkRepository;
     private final ProjectFileRepository fileRepository;
     private final ProjectMapper mapper;
+    private final ProjectCoverImageResolver coverImageResolver;
 
     public ProjectService(ProjectRepository projectRepository,
                           UserRepository userRepository,
                           ProjectLikeRepository likeRepository,
                           BookmarkRepository bookmarkRepository,
                           ProjectFileRepository fileRepository,
-                          ProjectMapper mapper) {
+                          ProjectMapper mapper,
+                          ProjectCoverImageResolver coverImageResolver) {
         this.projectRepository = projectRepository;
         this.userRepository = userRepository;
         this.likeRepository = likeRepository;
         this.bookmarkRepository = bookmarkRepository;
         this.fileRepository = fileRepository;
         this.mapper = mapper;
+        this.coverImageResolver = coverImageResolver;
     }
 
     // ---------------------------------------------------------------- read
@@ -163,8 +166,7 @@ public class ProjectService {
                 .category(request.getCategory())
                 .year(request.getYear())
                 .academicYear(request.getAcademicYear().trim())
-                .image(request.getImage() == null || request.getImage().isBlank()
-                        ? Constants.DEFAULT_IMAGE : request.getImage())
+                .image(coverImageResolver.resolve(request))
                 .status(ProjectStatus.PENDING)
                 .likesCount(0)
                 .viewsCount(0)
@@ -207,6 +209,7 @@ public class ProjectService {
 
         validateTaxonomy(request);
 
+        String previousCategory = project.getCategory();
         project.setTitle(request.getTitle().trim());
         project.setDescription(request.getDescription().trim());
         project.setDeployLink(blankToNull(request.getDeployLink()));
@@ -214,8 +217,12 @@ public class ProjectService {
         project.setCategory(request.getCategory());
         project.setYear(request.getYear());
         project.setAcademicYear(request.getAcademicYear().trim());
-        if (request.getImage() != null && !request.getImage().isBlank()) {
-            project.setImage(request.getImage());
+        if (!previousCategory.equals(request.getCategory())) {
+            project.setImage(coverImageResolver.isValidCoverImage(request.getCoverImage())
+                    ? request.getCoverImage().trim()
+                    : coverImageResolver.resolveDomain(request));
+        } else if (!coverImageResolver.isValidCoverImage(project.getImage())) {
+            project.setImage(coverImageResolver.resolve(request));
         }
         project.setTechnologies(cleanTechnologies(request.getTechnologies()));
 
