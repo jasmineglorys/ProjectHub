@@ -37,6 +37,8 @@ export default function SubmitPage() {
     academicYear: user?.academicYear || '',
     technologies: '',
     image: SAMPLE_IMAGES[0],
+    winner: false,
+    awardCertificate: null,
     supportingFiles: [],
     mediaFiles: [],
     teamMembers: [{ name: user?.name || '', rollNo: user?.rollNo || '' }],
@@ -96,6 +98,10 @@ export default function SubmitPage() {
           next.deployLink = 'Enter a valid URL starting with http:// or https://';
         }
       }
+
+      if (form.winner && !form.awardCertificate) {
+        next.awardCertificate = 'Upload the award certificate for a winning project';
+      }
     }
 
     if (current === 2) {
@@ -134,6 +140,7 @@ export default function SubmitPage() {
       year: Number(form.year),
       academicYear: form.academicYear.trim(),
       image: form.image,
+      winner: form.winner,
       technologies: form.technologies
         .split(',')
         .map((t) => t.trim())
@@ -145,6 +152,9 @@ export default function SubmitPage() {
 
     const formData = new FormData();
     formData.append('project', new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+    if (form.winner && form.awardCertificate) {
+      formData.append('awardCertificate', form.awardCertificate);
+    }
     form.supportingFiles.forEach((file) => formData.append('supportingFiles', file));
     form.mediaFiles.forEach((file) => formData.append('mediaFiles', file));
 
@@ -256,6 +266,30 @@ export default function SubmitPage() {
                   Add files in any format, including PPT, PDF, and Word documents
                 </small>
               </label>
+
+              <label className="checkbox-field">
+                <input
+                  type="checkbox"
+                  checked={form.winner}
+                  onChange={(e) => update('winner', e.target.checked)}
+                />
+                <span>This project has won an award</span>
+              </label>
+
+              {form.winner && (
+                <label className="field">
+                  <span>Award Certificate *</span>
+                  <input
+                    type="file"
+                    accept=".pdf,image/png,image/jpeg"
+                    onChange={(e) => update('awardCertificate', e.target.files[0] || null)}
+                  />
+                  <small className="hint">Upload the certificate as a PDF, PNG, or JPEG image</small>
+                  {errors.awardCertificate && (
+                    <small className="field-error">{errors.awardCertificate}</small>
+                  )}
+                </label>
+              )}
 
               {showOptionalResources && (
                 <label className="field">

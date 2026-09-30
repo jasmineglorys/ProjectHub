@@ -577,6 +577,13 @@ img {
   align-self: flex-start;
 }
 
+.project-card-labels {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
 .status-badge {
   position: absolute;
   top: 0.65rem;
@@ -807,6 +814,23 @@ textarea:focus {
 .field {
   display: block;
   margin-bottom: 1rem;
+}
+
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+  color: #334155;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.checkbox-field input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: var(--gold);
 }
 
 .field > span {
@@ -1273,7 +1297,6 @@ textarea:focus {
   color: var(--navy);
   font-weight: 600;
 }
-
 .demo-box {
   margin-top: 1.25rem;
   padding: 0.75rem;

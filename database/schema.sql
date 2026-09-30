@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS projects (
     academic_year VARCHAR(9)   DEFAULT NULL,
     image        VARCHAR(200)  DEFAULT NULL,
     status       VARCHAR(20)   NOT NULL DEFAULT 'PENDING',
+    is_winner    BOOLEAN       NOT NULL DEFAULT FALSE,
     likes_count  INT           NOT NULL DEFAULT 0,
     views_count  INT           NOT NULL DEFAULT 0,
     submitted_at DATE          NOT NULL,

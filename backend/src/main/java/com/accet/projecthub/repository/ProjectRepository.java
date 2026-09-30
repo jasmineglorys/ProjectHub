@@ -18,6 +18,8 @@ public interface ProjectRepository extends JpaRepository<Project, Long>,
 
     List<Project> findByStatusOrderByIdDesc(ProjectStatus status);
 
+    List<Project> findByStatusAndWinnerTrueOrderBySubmittedAtDesc(ProjectStatus status);
+
     long countByStatus(ProjectStatus status);
 
     @Query("SELECT p.department, COUNT(p) FROM Project p WHERE p.status = :status GROUP BY p.department")

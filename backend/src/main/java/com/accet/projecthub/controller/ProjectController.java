@@ -70,6 +70,11 @@ public class ProjectController {
         return ResponseEntity.ok(projectService.getBookmarkedProjects(principal.getId()));
     }
 
+    @GetMapping("/winners")
+    public ResponseEntity<List<ProjectDto>> winners() {
+        return ResponseEntity.ok(projectService.getWinningProjects(SecurityUtils.currentUserId()));
+    }
+
     /** Public for approved projects; owner/admin can also read pending ones. */
     @GetMapping("/{id}")
     public ResponseEntity<ProjectDto> getOne(@PathVariable Long id) {
@@ -77,14 +82,16 @@ public class ProjectController {
                 id, SecurityUtils.currentUserId(), SecurityUtils.isAdmin()));
     }
 
-    @PostMapping
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ProjectDto> create(
             @Valid @RequestPart("project") ProjectRequest request,
             @RequestPart(value = "supportingFiles", required = false) List<MultipartFile> supportingFiles,
             @RequestPart(value = "mediaFiles", required = false) List<MultipartFile> mediaFiles,
+            @RequestPart(value = "awardCertificate", required = false) MultipartFile awardCertificate,
             @AuthenticationPrincipal CustomUserDetails principal) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(projectService.create(request, supportingFiles, mediaFiles, principal.getId()));
+                .body(projectService.create(request, supportingFiles, mediaFiles,
+                        awardCertificate, principal.getId()));
     }
 
     @GetMapping("/{projectId}/files/{fileId}")

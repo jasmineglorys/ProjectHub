@@ -5,6 +5,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 import HomePage from './pages/HomePage';
 import BrowsePage from './pages/BrowsePage';
+import WinningProjectsPage from './pages/WinningProjectsPage';
 import DepartmentsPage from './pages/DepartmentsPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
 import LoginPage from './pages/LoginPage';
@@ -22,6 +23,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/browse" element={<BrowsePage />} />
+          <Route path="/winners" element={<WinningProjectsPage />} />
           <Route path="/departments" element={<DepartmentsPage />} />
           <Route path="/projects/:id" element={<ProjectDetailPage />} />
           <Route path="/login" element={<LoginPage />} />

@@ -2,14 +2,14 @@ import api from './axiosConfig';
 
 export const browseProjects = (params) => api.get('/projects', { params });
 
+export const getWinningProjects = () => api.get('/projects/winners');
+
 export const getProject = (id) => api.get(`/projects/${id}`);
 
 export const getProjectFile = (projectId, fileId) =>
 	api.get(`/projects/${projectId}/files/${fileId}`, { responseType: 'blob' });
 
-export const createProject = (formData) => api.post('/projects', formData, {
-	headers: { 'Content-Type': 'multipart/form-data' },
-});
+export const createProject = (formData) => api.post('/projects', formData);
 
 export const updateProject = (id, payload) => api.put(`/projects/${id}`, payload);
 

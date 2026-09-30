@@ -24,7 +24,10 @@ export default function ProjectCard({ project, onLike, onBookmark, showStatus = 
       </Link>
 
       <div className="card-body">
-        <span className="badge-muted">{project.category}</span>
+        <div className="project-card-labels">
+          <span className="badge-muted">{project.category}</span>
+          {project.winner && <span className="badge-muted">Award winner</span>}
+        </div>
         <h3>
           <Link to={`/projects/${project.id}`}>{project.title}</Link>
         </h3>

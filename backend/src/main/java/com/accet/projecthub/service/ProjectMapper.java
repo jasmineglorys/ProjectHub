@@ -42,6 +42,7 @@ public class ProjectMapper {
                 .academicYear(project.getAcademicYear())
                 .image(project.getImage())
                 .status(project.getStatus().name())
+                .winner(project.isWinner())
                 .likes(project.getLikesCount())
                 .views(project.getViewsCount())
                 .submittedAt(project.getSubmittedAt() == null

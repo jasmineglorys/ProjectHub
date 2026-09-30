@@ -192,6 +192,7 @@ export default function ProjectDetailPage() {
             <span className="badge-light">{project.category}</span>
             <span className="badge-light">{project.year}</span>
             {project.academicYear && <span className="badge-light">{project.academicYear}</span>}
+            {project.winner && <span className="badge-light">Award winner</span>}
             {project.status !== 'APPROVED' && (
               <span className={`status-badge status-${project.status.toLowerCase()}`}>
                 {project.status}
@@ -252,7 +253,11 @@ export default function ProjectDetailPage() {
                     <div className="project-file-meta">
                       <strong>{file.fileName}</strong>
                       <small className="muted">
-                        {file.fileType === 'SUPPORTING' ? 'Supporting file' : 'Media file'}
+                        {file.fileType === 'CERTIFICATE'
+                          ? 'Award certificate'
+                          : file.fileType === 'SUPPORTING'
+                            ? 'Supporting file'
+                            : 'Media file'}
                         {' · '}{formatFileSize(file.fileSize)}
                       </small>
                     </div>

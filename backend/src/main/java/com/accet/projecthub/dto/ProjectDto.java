@@ -24,6 +24,7 @@ public class ProjectDto {
     private String academicYear;
     private String image;
     private String status;
+    private boolean winner;
     private Integer likes;
     private Integer views;
     private String submittedAt;

@@ -47,6 +47,8 @@ public class ProjectRequest {
     @Size(max = 200)
     private String image;
 
+    private boolean winner;
+
     @Size(max = 10)
     private List<String> supportingFileNames = new ArrayList<>();
 

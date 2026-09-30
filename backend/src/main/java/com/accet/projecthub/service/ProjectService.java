@@ -149,11 +149,18 @@ public class ProjectService {
 
     @Transactional
     public ProjectDto create(ProjectRequest request, List<MultipartFile> supportingFiles,
-                             List<MultipartFile> mediaFiles, Long userId) {
+                             List<MultipartFile> mediaFiles, MultipartFile awardCertificate,
+                             Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         validateTaxonomy(request);
+        if (request.isWinner() && (awardCertificate == null || awardCertificate.isEmpty())) {
+            throw new BadRequestException("Upload the award certificate for a winning project");
+        }
+        if (!request.isWinner() && awardCertificate != null && !awardCertificate.isEmpty()) {
+            throw new BadRequestException("A certificate can only be uploaded for a winning project");
+        }
 
         Project project = Project.builder()
                 .title(request.getTitle().trim())
@@ -166,6 +173,7 @@ public class ProjectService {
                 .image(request.getImage() == null || request.getImage().isBlank()
                         ? Constants.DEFAULT_IMAGE : request.getImage())
                 .status(ProjectStatus.PENDING)
+                .winner(request.isWinner())
                 .likesCount(0)
                 .viewsCount(0)
                 // The owner comes from the JWT, never from the request body.
@@ -179,7 +187,20 @@ public class ProjectService {
         Project saved = projectRepository.save(project);
         saveFiles(saved, supportingFiles, "SUPPORTING");
         saveFiles(saved, mediaFiles, "MEDIA");
+        if (request.isWinner()) {
+            saveFiles(saved, List.of(awardCertificate), "CERTIFICATE");
+        }
         return mapper.toDto(saved, likedIds(userId), bookmarkedIds(userId));
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProjectDto> getWinningProjects(Long currentUserId) {
+        Set<Long> liked = likedIds(currentUserId);
+        Set<Long> saved = bookmarkedIds(currentUserId);
+        return projectRepository.findByStatusAndWinnerTrueOrderBySubmittedAtDesc(ProjectStatus.APPROVED)
+                .stream()
+                .map(project -> mapper.toDto(project, liked, saved))
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)

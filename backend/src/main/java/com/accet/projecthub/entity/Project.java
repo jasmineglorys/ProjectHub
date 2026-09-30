@@ -59,6 +59,9 @@ public class Project {
     @Column(nullable = false, length = 20)
     private ProjectStatus status;
 
+    @Column(name = "is_winner", nullable = false, columnDefinition = "BOOLEAN NOT NULL DEFAULT FALSE")
+    private boolean winner;
+
     @Column(name = "likes_count", nullable = false)
     private Integer likesCount;
 
