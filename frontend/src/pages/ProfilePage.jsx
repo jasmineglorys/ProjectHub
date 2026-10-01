@@ -17,6 +17,7 @@ export default function ProfilePage() {
     pending: [],
     approved: [],
     rejected: [],
+    changesRequested: [],
     liked: [],
     comments: [],
   });
@@ -32,6 +33,7 @@ export default function ProfilePage() {
       pending: current.pending.map((p) => (p.id === id ? { ...p, ...patch } : p)),
       approved: current.approved.map((p) => (p.id === id ? { ...p, ...patch } : p)),
       rejected: current.rejected.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+      changesRequested: current.changesRequested.map((p) => (p.id === id ? { ...p, ...patch } : p)),
       liked: current.liked.map((p) => (p.id === id ? { ...p, ...patch } : p)),
     }));
     setSaved((list) => {
@@ -72,11 +74,17 @@ export default function ProfilePage() {
     };
   }, []);
 
-  const myProjects = [...activity.pending, ...activity.approved, ...activity.rejected];
+  const myProjects = [
+    ...activity.pending,
+    ...activity.approved,
+    ...activity.rejected,
+    ...activity.changesRequested,
+  ];
   const totalLikes = myProjects.reduce((sum, p) => sum + (p.likes || 0), 0);
   const displayed = activity[tab] || [];
   const tabs = [
     ['pending', 'Pending'],
+    ['changesRequested', 'Changes Requested'],
     ['approved', 'Approved'],
     ['rejected', 'Rejected'],
     ['liked', 'Liked'],
@@ -199,6 +207,12 @@ export default function ProfilePage() {
                           {notification.projectDescription}
                         </p>
                       </div>
+                    ) : notification.type === 'CHANGES_REQUESTED' ? (
+                      <div className="notification-project-details">
+                        <strong>Changes requested</strong>
+                        <p className="notification-project-title">{notification.projectTitle}</p>
+                        <p className="notification-project-description">{notification.message}</p>
+                      </div>
                     ) : (
                       <strong>{notification.message}</strong>
                     )}
@@ -263,6 +277,7 @@ function formatDate(value) {
 function emptyActivityText(tab) {
   const messages = {
     pending: "You don't have any projects waiting for approval.",
+    changesRequested: 'No projects currently need changes.',
     approved: "You don't have any approved projects yet.",
     rejected: "You don't have any rejected projects.",
     liked: "You haven't liked any projects yet.",
@@ -285,7 +300,9 @@ function ActivityProjectList({ projects, tab, emptyTitle, emptyText, onLike, onB
     ? 'Approval date'
     : tab === 'rejected'
       ? 'Rejection date'
-      : 'Submission date';
+      : tab === 'changesRequested'
+        ? 'Changes requested'
+        : 'Submission date';
 
   return (
     <div className="profile-activity-list">
@@ -297,7 +314,7 @@ function ActivityProjectList({ projects, tab, emptyTitle, emptyText, onLike, onB
                 {project.department}
               </span>
               <span className="badge-muted">{project.category}</span>
-              {tab && <span className={`status-badge status-${project.status.toLowerCase()}`}>{project.status}</span>}
+              {tab && <span className={`status-badge status-${project.status.toLowerCase()}`}>{project.status.replaceAll('_', ' ')}</span>}
             </div>
             <h3>{project.title}</h3>
             {tab === 'liked' && <p className="muted small">By {project.submittedBy}</p>}

@@ -10,6 +10,7 @@ import {
   DEPARTMENTS,
   CATEGORIES,
   ACADEMIC_YEARS,
+  PROJECT_YEARS,
   isValidAcademicYear,
 } from '../constants';
 
@@ -21,6 +22,8 @@ export default function BrowsePage() {
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [department, setDepartment] = useState(searchParams.get('department') || '');
   const [category, setCategory] = useState(searchParams.get('category') || '');
+  const [year, setYear] = useState(searchParams.get('year') || '');
+  const [technology, setTechnology] = useState(searchParams.get('technology') || '');
   const [academicYear, setAcademicYear] = useState(searchParams.get('academicYear') || '');
   const [sort, setSort] = useState(searchParams.get('sort') || 'popular');
   const [page, setPage] = useState(0);
@@ -51,19 +54,21 @@ export default function BrowsePage() {
 
   useEffect(() => {
     setPage(0);
-  }, [debouncedSearch, department, category, debouncedAcademicYear, sort]);
+  }, [debouncedSearch, department, category, year, technology, debouncedAcademicYear, sort]);
 
   useEffect(() => {
     const params = {};
     if (debouncedSearch) params.search = debouncedSearch;
     if (department) params.department = department;
     if (category) params.category = category;
+    if (year) params.year = year;
+    if (technology) params.technology = technology;
     if (isValidAcademicYear(debouncedAcademicYear)) {
       params.academicYear = debouncedAcademicYear.trim();
     }
     if (sort !== 'popular') params.sort = sort;
     setSearchParams(params, { replace: true });
-  }, [debouncedSearch, department, category, debouncedAcademicYear, sort, setSearchParams]);
+  }, [debouncedSearch, department, category, year, technology, debouncedAcademicYear, sort, setSearchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,6 +81,8 @@ export default function BrowsePage() {
           search: debouncedSearch || undefined,
           department: department || undefined,
           category: category || undefined,
+          year: year ? Number(year) : undefined,
+          technology: technology || undefined,
           academicYear: isValidAcademicYear(debouncedAcademicYear)
             ? debouncedAcademicYear.trim()
             : undefined,
@@ -98,18 +105,21 @@ export default function BrowsePage() {
     return () => {
       cancelled = true;
     };
-  }, [debouncedSearch, department, category, debouncedAcademicYear, sort, page]);
+  }, [debouncedSearch, department, category, year, technology, debouncedAcademicYear, sort, page]);
 
   function clearAll() {
     setSearch('');
     setDepartment('');
     setCategory('');
+    setYear('');
+    setTechnology('');
     setAcademicYear('');
     setDebouncedAcademicYear('');
   }
 
   const hasFilters = Boolean(
-    search || department || category || isValidAcademicYear(debouncedAcademicYear),
+    search || department || category || year || technology
+      || isValidAcademicYear(debouncedAcademicYear),
   );
 
   return (
@@ -127,7 +137,7 @@ export default function BrowsePage() {
         <div className="filter-bar">
           <input
             type="text"
-            placeholder="🔍 Search title, tech, team…"
+            placeholder="Search title, technology, department, category, year…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -145,6 +155,12 @@ export default function BrowsePage() {
               <option key={c} value={c}>
                 {c}
               </option>
+            ))}
+          </select>
+          <select value={year} onChange={(e) => setYear(e.target.value)}>
+            <option value="">All Project Years</option>
+            {PROJECT_YEARS.map((projectYear) => (
+              <option key={projectYear} value={projectYear}>{projectYear}</option>
             ))}
           </select>
           <input
@@ -178,6 +194,8 @@ export default function BrowsePage() {
             {search && <Chip label={`"${search}"`} onRemove={() => setSearch('')} />}
             {department && <Chip label={department} onRemove={() => setDepartment('')} />}
             {category && <Chip label={category} onRemove={() => setCategory('')} />}
+            {year && <Chip label={`Project year ${year}`} onRemove={() => setYear('')} />}
+            {technology && <Chip label={technology} onRemove={() => setTechnology('')} />}
             {isValidAcademicYear(debouncedAcademicYear) && (
               <Chip
                 label={`Academic year ${debouncedAcademicYear}`}

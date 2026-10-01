@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, Link, useLocation } from 'react-router-dom';
 import {
   addProjectComment,
+  browseProjects,
   deleteProject,
   getProject,
   getProjectFile,
@@ -10,6 +11,7 @@ import {
 import { extractError } from '../api/axiosConfig';
 import { useAuth } from '../context/AuthContext';
 import useProjectActions from '../hooks/useProjectActions';
+import ProjectCard from '../components/ProjectCard';
 import Loader from '../components/Loader';
 import Alert from '../components/Alert';
 import { projectImageUrl } from '../constants';
@@ -17,6 +19,7 @@ import { projectImageUrl } from '../constants';
 export default function ProjectDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, isAdmin } = useAuth();
 
   const [project, setProject] = useState(null);
@@ -25,17 +28,31 @@ export default function ProjectDetailPage() {
   const [success, setSuccess] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [comments, setComments] = useState([]);
+  const [relatedProjects, setRelatedProjects] = useState([]);
   const [commentText, setCommentText] = useState('');
   const [commenting, setCommenting] = useState(false);
   const [downloadingFileId, setDownloadingFileId] = useState(null);
   const [openingFileId, setOpeningFileId] = useState(null);
   const [preview, setPreview] = useState(null);
 
-  const applyChange = useCallback((_projectId, patch) => {
-    setProject((prev) => (prev ? { ...prev, ...patch } : prev));
+  const applyChange = useCallback((projectId, patch) => {
+    setProject((prev) => (
+      prev?.id === projectId ? withPopularity({ ...prev, ...patch }) : prev
+    ));
+    setRelatedProjects((list) => list.map((item) => (
+      item.id === projectId ? withPopularity({ ...item, ...patch }) : item
+    )));
   }, []);
 
   const { like, bookmark } = useProjectActions(applyChange, setError);
+
+  function handleBack() {
+    if (window.history.state?.idx > 0) {
+      navigate(-1);
+      return;
+    }
+    navigate(location.state?.from || '/browse', { replace: true });
+  }
 
   useEffect(() => () => {
     if (preview?.url) URL.revokeObjectURL(preview.url);
@@ -50,12 +67,33 @@ export default function ProjectDetailPage() {
       .then(async (res) => {
         if (cancelled) return;
         setProject(res.data);
-        try {
-          const commentsResponse = await getProjectComments(id);
-          if (!cancelled) setComments(commentsResponse.data);
-        } catch {
-          if (!cancelled) setComments([]);
-        }
+        const relatedQueries = [
+          { department: res.data.department },
+          { category: res.data.category },
+          ...(res.data.technologies || []).slice(0, 3).map((technology) => ({ technology })),
+        ].map((filters) => browseProjects({
+          ...filters,
+          sort: 'popular',
+          page: 0,
+          size: 12,
+        }));
+        const [commentsResult, ...relatedResults] = await Promise.allSettled([
+          getProjectComments(id),
+          ...relatedQueries,
+        ]);
+        if (cancelled) return;
+        setComments(commentsResult.status === 'fulfilled' ? commentsResult.value.data : []);
+        const candidates = new Map();
+        relatedResults.forEach((result) => {
+          if (result.status !== 'fulfilled') return;
+          result.value.data.content.forEach((candidate) => {
+            if (candidate.id !== res.data.id) candidates.set(candidate.id, candidate);
+          });
+        });
+        setRelatedProjects([...candidates.values()]
+          .sort((left, right) => relatedProjectScore(right, res.data)
+            - relatedProjectScore(left, res.data))
+          .slice(0, 4));
       })
       .catch((err) => {
         if (!cancelled) setError(extractError(err, 'This project could not be loaded.'));
@@ -90,7 +128,7 @@ export default function ProjectDetailPage() {
     setDownloadingFileId(file.id);
     setError('');
     try {
-      const response = await getProjectFile(project.id, file.id);
+      const response = await getProjectFile(project.id, file.id, true);
       const objectUrl = URL.createObjectURL(response.data);
       const link = document.createElement('a');
       link.href = objectUrl;
@@ -99,6 +137,10 @@ export default function ProjectDetailPage() {
       link.click();
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      setProject((current) => current && withPopularity({
+        ...current,
+        downloads: (current.downloads || 0) + 1,
+      }));
     } catch (err) {
       setError(extractError(err, `Could not download ${file.fileName || 'this file'}.`));
     } finally {
@@ -183,11 +225,12 @@ export default function ProjectDetailPage() {
       <div className="detail-hero">
         <img src={projectImageUrl(project, 1400, 600)} alt={project.title} />
         <div className="detail-hero-overlay" />
-        <button type="button" className="back-btn" onClick={() => navigate(-1)}>
+        <button type="button" className="back-btn" onClick={handleBack}>
           ← Back
         </button>
         <div className="detail-hero-text container">
           <div className="badge-row">
+            {project.achievement && <span className="badge-light">Award-winning</span>}
             <span className={`dept-badge dept-${project.department.toLowerCase()}`}>
               {project.department}
             </span>
@@ -219,13 +262,25 @@ export default function ProjectDetailPage() {
             )}
           </section>
 
+          {project.achievement && (
+            <section className="panel">
+              <h2>Awards &amp; achievements</h2>
+              <p className="detail-description">{project.achievement}</p>
+            </section>
+          )}
+
           <section className="panel">
             <h2>Technologies used</h2>
             <div className="tech-row">
               {project.technologies.map((tech) => (
-                <span key={tech} className="tech-chip">
+                <Link
+                  key={tech}
+                  className="tech-chip"
+                  to={`/browse?technology=${encodeURIComponent(tech)}`}
+                  aria-label={`Browse projects using ${tech}`}
+                >
                   {tech}
-                </span>
+                </Link>
               ))}
             </div>
           </section>
@@ -254,7 +309,11 @@ export default function ProjectDetailPage() {
                     <div className="project-file-meta">
                       <strong>{file.fileName}</strong>
                       <small className="muted">
-                        {file.fileType === 'SUPPORTING' ? 'Supporting file' : 'Media file'}
+                        {file.fileType === 'SUPPORTING'
+                          ? 'Supporting file'
+                          : file.fileType === 'CERTIFICATE'
+                            ? 'Achievement certificate'
+                            : 'Media file'}
                         {' · '}{formatFileSize(file.fileSize)}
                       </small>
                     </div>
@@ -342,6 +401,23 @@ export default function ProjectDetailPage() {
               </p>
             )}
           </section>
+
+          {relatedProjects.length > 0 && (
+            <section className="panel">
+              <h2>Related projects</h2>
+              <p className="muted small">Similar department and category, ranked by shared technologies.</p>
+              <div className="card-grid">
+                {relatedProjects.map((relatedProject) => (
+                  <ProjectCard
+                    key={relatedProject.id}
+                    project={relatedProject}
+                    onLike={like}
+                    onBookmark={bookmark}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
         </div>
 
         <aside className="detail-side">
@@ -354,6 +430,18 @@ export default function ProjectDetailPage() {
               <div>
                 <strong>{project.views}</strong>
                 <span>Views</span>
+              </div>
+              <div>
+                <strong>{project.bookmarks || 0}</strong>
+                <span>Bookmarks</span>
+              </div>
+              <div>
+                <strong>{project.downloads || 0}</strong>
+                <span>Downloads</span>
+              </div>
+              <div title="Views + likes + bookmarks + downloads">
+                <strong>{project.popularity || 0}</strong>
+                <span>Popularity</span>
               </div>
             </div>
 
@@ -408,6 +496,25 @@ export default function ProjectDetailPage() {
       </div>
     </div>
   );
+}
+
+function sharedTechnologyCount(project, sourceProject) {
+  const technologies = new Set(sourceProject.technologies || []);
+  return (project.technologies || []).filter((technology) => technologies.has(technology)).length;
+}
+
+function relatedProjectScore(project, sourceProject) {
+  return Number(project.department === sourceProject.department)
+    + Number(project.category === sourceProject.category) * 2
+    + sharedTechnologyCount(project, sourceProject) * 3;
+}
+
+function withPopularity(project) {
+  return {
+    ...project,
+    popularity: (project.views || 0) + (project.likes || 0)
+      + (project.bookmarks || 0) + (project.downloads || 0),
+  };
 }
 
 function formatDate(value) {

@@ -37,7 +37,10 @@ export default function useProjectActions(applyChange, onError) {
       }
       try {
         const res = await toggleBookmark(projectId);
-        applyChange(projectId, { bookmarkedByMe: res.data.active });
+        applyChange(projectId, {
+          bookmarkedByMe: res.data.active,
+          ...(res.data.bookmarks !== undefined ? { bookmarks: res.data.bookmarks } : {}),
+        });
         updateUserLists('bookmarks', projectId, res.data.active);
       } catch (error) {
         onError?.(extractError(error, 'Could not update the bookmark.'));

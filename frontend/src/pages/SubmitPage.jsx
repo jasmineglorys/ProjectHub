@@ -37,6 +37,7 @@ export default function SubmitPage() {
   const [form, setForm] = useState({
     title: '',
     description: '',
+    achievement: '',
     deployLink: '',
     department: initialDepartment,
     category: initialDomain,
@@ -47,6 +48,7 @@ export default function SubmitPage() {
     image: getCoverOptions(initialDepartment, initialDomain)[0]?.id || SAMPLE_IMAGES[0],
     supportingFiles: [],
     mediaFiles: [],
+    certificateFiles: [],
     teamMembers: [{ name: user?.name || '', rollNo: user?.rollNo || '' }],
   });
 
@@ -191,6 +193,7 @@ export default function SubmitPage() {
     const payload = {
       title: form.title.trim(),
       description: form.description.trim(),
+      achievement: form.achievement.trim() || null,
       deployLink: form.deployLink.trim() || null,
       department: form.department,
       category: isCustomDomain ? form.otherCategory.trim() : form.category,
@@ -211,6 +214,7 @@ export default function SubmitPage() {
     formData.append('project', new Blob([JSON.stringify(payload)], { type: 'application/json' }));
     form.supportingFiles.forEach((file) => formData.append('supportingFiles', file));
     form.mediaFiles.forEach((file) => formData.append('mediaFiles', file));
+    form.certificateFiles.forEach((file) => formData.append('certificateFiles', file));
     if (coverFile) formData.append('coverImage', coverFile);
 
     setSubmitting(true);
@@ -294,6 +298,29 @@ export default function SubmitPage() {
                 {errors.description && (
                   <small className="field-error">{errors.description}</small>
                 )}
+              </label>
+
+              <label className="field">
+                <span>Awards &amp; achievements (optional)</span>
+                <textarea
+                  rows={3}
+                  maxLength={2000}
+                  value={form.achievement}
+                  onChange={(e) => update('achievement', e.target.value)}
+                  placeholder="Describe awards, competition placements, or other project achievements"
+                />
+                <small className="hint">Leave blank if the project has no achievements.</small>
+              </label>
+
+              <label className="field">
+                <span>Achievement certificates (optional)</span>
+                <input
+                  type="file"
+                  accept="application/pdf,image/jpeg,image/png"
+                  multiple
+                  onChange={(e) => update('certificateFiles', Array.from(e.target.files))}
+                />
+                <small className="hint">Upload PDF, JPEG, or PNG certificates, up to 10 files.</small>
               </label>
 
               <label className="field">
