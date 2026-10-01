@@ -7,7 +7,7 @@ export default function Footer() {
           <p>Alagappa Chettiar Government College of Engineering and Technology  · Karaikudi</p>
         </div>
         <p className="muted small">
-          Built with React, Spring Boot and MySQL · © {new Date().getFullYear()}
+          Built By CSE Students · © {new Date().getFullYear()}
         </p>
       </div>
     </footer>

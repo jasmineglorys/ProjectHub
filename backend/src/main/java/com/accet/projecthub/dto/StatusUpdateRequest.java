@@ -8,7 +8,7 @@ import lombok.Setter;
 @Setter
 public class StatusUpdateRequest {
 
-    /** One of: PENDING, APPROVED, REJECTED */
+    /** One of: PENDING, APPROVED. Use dedicated endpoints for rejection and change requests. */
     @NotBlank(message = "Status is required")
     private String status;
 }

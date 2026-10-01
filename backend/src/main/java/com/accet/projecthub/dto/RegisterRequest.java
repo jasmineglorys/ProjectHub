@@ -35,6 +35,10 @@ public class RegisterRequest {
     @Max(value = 4, message = "Year must be between 1 and 4")
     private Integer year;
 
+    @NotBlank(message = "Academic year is required")
+    @Pattern(regexp = "[0-9]{4}-[0-9]{4}", message = "Academic year must use the format YYYY-YYYY, e.g. 2023-2027")
+    private String academicYear;
+
     @NotBlank(message = "Password is required")
         @Size(min = 8, max = 72, message = "Password must be between 8 and 72 characters")
         @Pattern(

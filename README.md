@@ -5,7 +5,7 @@ authentication, BCrypt password hashing, role-based access and complete CRUD.
 
 ```
 project-sharing-website/
-├── backend/      Spring Boot 3.3.4 · Java 17 · Spring Web, Data JPA, Security, Validation
+├── backend/      Spring Boot 3.3.4 · Java 17 · Spring Web, Data JPA, Security, Validation, Mail
 ├── frontend/     React 18 · Vite · React Router 6 · Axios · plain CSS
 └── database/     schema.sql, sample-data.sql
 ```
@@ -33,7 +33,7 @@ mysql -u root -p
 
 You do **not** need to create the database by hand — the JDBC URL contains
 `createDatabaseIfNotExist=true` and `spring.jpa.hibernate.ddl-auto=update`, so Hibernate
-creates `projecthub_db` and all six tables on first startup.
+creates `projecthub_db` and all tables on first startup.
 
 If you prefer to create the schema manually:
 
@@ -64,6 +64,28 @@ spring.datasource.password=${DB_PASSWORD:}
 spring.jpa.hibernate.ddl-auto=update
 spring.jpa.show-sql=true
 ```
+
+Password reset email delivery uses Spring Boot Mail. Edit the repository-root `.env` once with
+the dedicated ProjectHub sender email and its Gmail App Password. Spring also checks
+`backend/.env`. These local files are ignored by Git; do not put credentials in
+`application.properties` or commit them:
+
+```properties
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=your-address@gmail.com
+SMTP_PASSWORD=your-gmail-app-password
+SMTP_FROM=your-address@gmail.com
+```
+
+Spring Boot imports this file automatically on startup. Values from actual operating-system
+environment variables override the local file. Use a Gmail App Password rather than your
+Google account password. This is a one-time application-owner setup; students and admins never
+enter email credentials. In production, configure the same `SMTP_*` values as server secrets.
+Set `PASSWORD_RESET_COOKIE_SECURE=true` when serving the backend over HTTPS. If the frontend
+and backend are hosted on different sites, also set `PASSWORD_RESET_COOKIE_SAME_SITE=None`;
+otherwise the secure reset cookie remains `Strict` by default. The OTP challenge table is
+created automatically by Hibernate on startup.
 
 Run it:
 
@@ -162,6 +184,10 @@ source into the filter chain, so pre-flight `OPTIONS` requests succeed.
 |---|---|---|---|
 | POST | `/api/auth/register` | Public | Create a student account, returns a JWT |
 | POST | `/api/auth/login` | Public | Log in, returns a JWT |
+| POST | `/api/auth/forgot-password` | Public | Request a reset code (generic response) |
+| POST | `/api/auth/resend-otp` | Public | Resend a reset code (rate limited) |
+| POST | `/api/auth/verify-otp` | Public | Verify code and set a short-lived HttpOnly reset cookie |
+| POST | `/api/auth/reset-password` | Public | Set a new password using the reset cookie |
 | GET | `/api/auth/me` | Authenticated | Current user + liked/bookmarked ids |
 
 ### Projects

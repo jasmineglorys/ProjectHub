@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
@@ -25,19 +26,29 @@ public class ProjectRequest {
     @Size(min = 20, max = 4000, message = "Description must be between 20 and 4000 characters")
     private String description;
 
+    @Size(max = 2000, message = "Achievement details must be at most 2000 characters")
+    private String achievement;
+
     @Size(max = 500, message = "Deploy link must be at most 500 characters")
     private String deployLink;
 
     @NotBlank(message = "Department is required")
     private String department;
 
-    @NotBlank(message = "Category is required")
+    @NotBlank(message = "Project domain is required")
+    @Size(max = 40, message = "Project domain must be 40 characters or fewer")
     private String category;
+
+    private boolean customCategory;
 
     @NotNull(message = "Project year is required")
     @Min(value = 2000, message = "Project year must be 2000 or later")
     @Max(value = 2100, message = "Project year is not valid")
     private Integer year;
+
+    @NotBlank(message = "Academic year is required")
+    @Pattern(regexp = "[0-9]{4}-[0-9]{4}", message = "Academic year must use the format YYYY-YYYY, e.g. 2023-2027")
+    private String academicYear;
 
     @Size(max = 200)
     private String image;

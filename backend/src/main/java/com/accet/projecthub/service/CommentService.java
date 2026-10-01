@@ -52,11 +52,7 @@ public class CommentService {
                 .author(author)
                 .build();
         ProjectComment saved = commentRepository.save(comment);
-        notificationService.notifyProjectOwner(
-                project,
-                "COMMENT",
-                author.getName() + " commented on your project",
-                userId);
+        notificationService.notifyProjectComment(project, author.getName(), userId);
         return toDto(saved);
     }
 

@@ -17,14 +17,19 @@ public class ProjectDto {
     private Long id;
     private String title;
     private String description;
+    private String achievement;
     private String deployLink;
     private String department;
     private String category;
     private Integer year;
+    private String academicYear;
     private String image;
     private String status;
     private Integer likes;
     private Integer views;
+    private Long bookmarks;
+    private Integer downloads;
+    private Long popularity;
     private String submittedAt;
     private String updatedAt;
     private Long commentCount;
@@ -32,6 +37,7 @@ public class ProjectDto {
     private String submittedBy;
     private List<String> technologies;
     private List<TeamMemberDto> teamMembers;
+    private List<ProjectFileDto> files;
     private Boolean likedByMe;
     private Boolean bookmarkedByMe;
 }

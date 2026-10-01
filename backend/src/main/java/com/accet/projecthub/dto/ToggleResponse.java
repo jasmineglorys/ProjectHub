@@ -1,5 +1,6 @@
 package com.accet.projecthub.dto;
 
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -15,5 +16,6 @@ public class ToggleResponse {
     private Long projectId;
     private boolean active;
     private Integer likes;
+    private Long bookmarks;
     private String message;
 }

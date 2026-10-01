@@ -50,6 +50,8 @@ public class ProfileService {
                 .pending(mapProjects(mine, project -> project.getStatus() == ProjectStatus.PENDING, null, null))
                 .approved(mapProjects(mine, project -> project.getStatus() == ProjectStatus.APPROVED, null, null))
                 .rejected(mapProjects(mine, project -> project.getStatus() == ProjectStatus.REJECTED, null, null))
+                .changesRequested(mapProjects(mine,
+                        project -> project.getStatus() == ProjectStatus.CHANGES_REQUESTED, null, null))
                 .liked(liked.stream()
                         .map(project -> projectMapper.toDto(project, likedIds, null))
                         .collect(Collectors.toList()))
@@ -64,7 +66,7 @@ public class ProfileService {
                                          Set<Long> bookmarkedIds) {
         return projects.stream()
                 .filter(filter)
-                .map(project -> projectMapper.toDto(project, likedIds, bookmarkedIds))
+                                .map(project -> projectMapper.toDto(project, likedIds, bookmarkedIds))
                 .collect(Collectors.toList());
     }
 }

@@ -1,21 +1,25 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, Link, useLocation } from 'react-router-dom';
 import {
   addProjectComment,
+  browseProjects,
   deleteProject,
   getProject,
+  getProjectFile,
   getProjectComments,
 } from '../api/projectApi';
 import { extractError } from '../api/axiosConfig';
 import { useAuth } from '../context/AuthContext';
 import useProjectActions from '../hooks/useProjectActions';
+import ProjectCard from '../components/ProjectCard';
 import Loader from '../components/Loader';
 import Alert from '../components/Alert';
-import { imageUrl } from '../constants';
+import { projectImageUrl } from '../constants';
 
 export default function ProjectDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, isAdmin } = useAuth();
 
   const [project, setProject] = useState(null);
@@ -24,14 +28,35 @@ export default function ProjectDetailPage() {
   const [success, setSuccess] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [comments, setComments] = useState([]);
+  const [relatedProjects, setRelatedProjects] = useState([]);
   const [commentText, setCommentText] = useState('');
   const [commenting, setCommenting] = useState(false);
+  const [downloadingFileId, setDownloadingFileId] = useState(null);
+  const [openingFileId, setOpeningFileId] = useState(null);
+  const [preview, setPreview] = useState(null);
 
-  const applyChange = useCallback((_projectId, patch) => {
-    setProject((prev) => (prev ? { ...prev, ...patch } : prev));
+  const applyChange = useCallback((projectId, patch) => {
+    setProject((prev) => (
+      prev?.id === projectId ? withPopularity({ ...prev, ...patch }) : prev
+    ));
+    setRelatedProjects((list) => list.map((item) => (
+      item.id === projectId ? withPopularity({ ...item, ...patch }) : item
+    )));
   }, []);
 
   const { like, bookmark } = useProjectActions(applyChange, setError);
+
+  function handleBack() {
+    if (window.history.state?.idx > 0) {
+      navigate(-1);
+      return;
+    }
+    navigate(location.state?.from || '/browse', { replace: true });
+  }
+
+  useEffect(() => () => {
+    if (preview?.url) URL.revokeObjectURL(preview.url);
+  }, [preview]);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,12 +67,33 @@ export default function ProjectDetailPage() {
       .then(async (res) => {
         if (cancelled) return;
         setProject(res.data);
-        try {
-          const commentsResponse = await getProjectComments(id);
-          if (!cancelled) setComments(commentsResponse.data);
-        } catch {
-          if (!cancelled) setComments([]);
-        }
+        const relatedQueries = [
+          { department: res.data.department },
+          { category: res.data.category },
+          ...(res.data.technologies || []).slice(0, 3).map((technology) => ({ technology })),
+        ].map((filters) => browseProjects({
+          ...filters,
+          sort: 'popular',
+          page: 0,
+          size: 12,
+        }));
+        const [commentsResult, ...relatedResults] = await Promise.allSettled([
+          getProjectComments(id),
+          ...relatedQueries,
+        ]);
+        if (cancelled) return;
+        setComments(commentsResult.status === 'fulfilled' ? commentsResult.value.data : []);
+        const candidates = new Map();
+        relatedResults.forEach((result) => {
+          if (result.status !== 'fulfilled') return;
+          result.value.data.content.forEach((candidate) => {
+            if (candidate.id !== res.data.id) candidates.set(candidate.id, candidate);
+          });
+        });
+        setRelatedProjects([...candidates.values()]
+          .sort((left, right) => relatedProjectScore(right, res.data)
+            - relatedProjectScore(left, res.data))
+          .slice(0, 4));
       })
       .catch((err) => {
         if (!cancelled) setError(extractError(err, 'This project could not be loaded.'));
@@ -75,6 +121,63 @@ export default function ProjectDetailPage() {
       setError(extractError(err, 'Could not add your comment.'));
     } finally {
       setCommenting(false);
+    }
+  }
+
+  async function handleFileDownload(file) {
+    setDownloadingFileId(file.id);
+    setError('');
+    try {
+      const response = await getProjectFile(project.id, file.id, true);
+      const objectUrl = URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = file.fileName || 'project-file';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      setProject((current) => current && withPopularity({
+        ...current,
+        downloads: (current.downloads || 0) + 1,
+      }));
+    } catch (err) {
+      setError(extractError(err, `Could not download ${file.fileName || 'this file'}.`));
+    } finally {
+      setDownloadingFileId(null);
+    }
+  }
+
+  async function handleFileOpen(file) {
+    setOpeningFileId(file.id);
+    setError('');
+    try {
+      const response = await getProjectFile(project.id, file.id);
+      const contentType = getPreviewContentType(file);
+      const previewFile = { ...file, contentType };
+      if (isNativePreviewType(contentType)) {
+        if (isTextPreviewType(contentType)) {
+          setPreview({ file: previewFile, text: await response.data.text() });
+        } else {
+          setPreview({ file: previewFile, url: URL.createObjectURL(response.data) });
+        }
+      } else {
+        const buffer = await response.data.arrayBuffer();
+        try {
+          const { OfficeParser } = await import('officeparser');
+          const extension = getFileExtension(file.fileName);
+          const fileType = OFFICE_FILE_TYPES.has(extension) ? extension : undefined;
+          const document = await OfficeParser.parseOffice(buffer, { fileType });
+          const html = await document.to('html');
+          setPreview({ file: previewFile, html: html.value });
+        } catch {
+          setPreview({ file: previewFile, rawPreview: formatBinaryPreview(buffer) });
+        }
+      }
+    } catch (err) {
+      setError(extractError(err, `Could not open ${file.fileName || 'this file'}.`));
+    } finally {
+      setOpeningFileId(null);
     }
   }
 
@@ -115,21 +218,25 @@ export default function ProjectDetailPage() {
     );
   }
 
+  const projectFiles = project.files?.filter((file) => file.fileType !== 'COVER') || [];
+
   return (
     <div>
       <div className="detail-hero">
-        <img src={imageUrl(project.image, 1400, 600)} alt={project.title} />
+        <img src={projectImageUrl(project, 1400, 600)} alt={project.title} />
         <div className="detail-hero-overlay" />
-        <button type="button" className="back-btn" onClick={() => navigate(-1)}>
+        <button type="button" className="back-btn" onClick={handleBack}>
           ← Back
         </button>
         <div className="detail-hero-text container">
           <div className="badge-row">
+            {project.achievement && <span className="badge-light">Award-winning</span>}
             <span className={`dept-badge dept-${project.department.toLowerCase()}`}>
               {project.department}
             </span>
             <span className="badge-light">{project.category}</span>
             <span className="badge-light">{project.year}</span>
+            {project.academicYear && <span className="badge-light">{project.academicYear}</span>}
             {project.status !== 'APPROVED' && (
               <span className={`status-badge status-${project.status.toLowerCase()}`}>
                 {project.status}
@@ -155,13 +262,25 @@ export default function ProjectDetailPage() {
             )}
           </section>
 
+          {project.achievement && (
+            <section className="panel">
+              <h2>Awards &amp; achievements</h2>
+              <p className="detail-description">{project.achievement}</p>
+            </section>
+          )}
+
           <section className="panel">
             <h2>Technologies used</h2>
             <div className="tech-row">
               {project.technologies.map((tech) => (
-                <span key={tech} className="tech-chip">
+                <Link
+                  key={tech}
+                  className="tech-chip"
+                  to={`/browse?technology=${encodeURIComponent(tech)}`}
+                  aria-label={`Browse projects using ${tech}`}
+                >
                   {tech}
-                </span>
+                </Link>
               ))}
             </div>
           </section>
@@ -180,6 +299,62 @@ export default function ProjectDetailPage() {
               ))}
             </ul>
           </section>
+
+          {projectFiles.length > 0 && (
+            <section className="panel">
+              <h2>Project files</h2>
+              <ul className="project-file-list">
+                {projectFiles.map((file) => (
+                  <li key={file.id} className="project-file-item">
+                    <div className="project-file-meta">
+                      <strong>{file.fileName}</strong>
+                      <small className="muted">
+                        {file.fileType === 'SUPPORTING'
+                          ? 'Supporting file'
+                          : file.fileType === 'CERTIFICATE'
+                            ? 'Achievement certificate'
+                            : 'Media file'}
+                        {' · '}{formatFileSize(file.fileSize)}
+                      </small>
+                    </div>
+                    <div className="project-file-actions">
+                      <button
+                        type="button"
+                        className="btn btn-navy"
+                        onClick={() => handleFileOpen(file)}
+                        disabled={openingFileId !== null || downloadingFileId !== null}
+                      >
+                        {openingFileId === file.id ? 'Opening…' : 'Open'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-outline"
+                        onClick={() => handleFileDownload(file)}
+                        disabled={openingFileId !== null || downloadingFileId !== null}
+                      >
+                        {downloadingFileId === file.id ? 'Downloading…' : 'Download'}
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              {preview && (
+                <div className="project-file-preview">
+                  <div className="project-file-preview-head">
+                    <h3>{preview.file.fileName}</h3>
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      onClick={() => setPreview(null)}
+                    >
+                      Close preview
+                    </button>
+                  </div>
+                  <FilePreview preview={preview} />
+                </div>
+              )}
+            </section>
+          )}
 
           <section className="panel">
             <div className="section-heading-row">
@@ -226,6 +401,23 @@ export default function ProjectDetailPage() {
               </p>
             )}
           </section>
+
+          {relatedProjects.length > 0 && (
+            <section className="panel">
+              <h2>Related projects</h2>
+              <p className="muted small">Similar department and category, ranked by shared technologies.</p>
+              <div className="card-grid">
+                {relatedProjects.map((relatedProject) => (
+                  <ProjectCard
+                    key={relatedProject.id}
+                    project={relatedProject}
+                    onLike={like}
+                    onBookmark={bookmark}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
         </div>
 
         <aside className="detail-side">
@@ -238,6 +430,18 @@ export default function ProjectDetailPage() {
               <div>
                 <strong>{project.views}</strong>
                 <span>Views</span>
+              </div>
+              <div>
+                <strong>{project.bookmarks || 0}</strong>
+                <span>Bookmarks</span>
+              </div>
+              <div>
+                <strong>{project.downloads || 0}</strong>
+                <span>Downloads</span>
+              </div>
+              <div title="Views + likes + bookmarks + downloads">
+                <strong>{project.popularity || 0}</strong>
+                <span>Popularity</span>
               </div>
             </div>
 
@@ -294,6 +498,128 @@ export default function ProjectDetailPage() {
   );
 }
 
+function sharedTechnologyCount(project, sourceProject) {
+  const technologies = new Set(sourceProject.technologies || []);
+  return (project.technologies || []).filter((technology) => technologies.has(technology)).length;
+}
+
+function relatedProjectScore(project, sourceProject) {
+  return Number(project.department === sourceProject.department)
+    + Number(project.category === sourceProject.category) * 2
+    + sharedTechnologyCount(project, sourceProject) * 3;
+}
+
+function withPopularity(project) {
+  return {
+    ...project,
+    popularity: (project.views || 0) + (project.likes || 0)
+      + (project.bookmarks || 0) + (project.downloads || 0),
+  };
+}
+
 function formatDate(value) {
   return new Date(value).toLocaleString();
+}
+
+function formatFileSize(bytes) {
+  if (!Number.isFinite(bytes) || bytes < 0) return 'Size unavailable';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+const OFFICE_FILE_TYPES = new Set([
+  'docx', 'pptx', 'xlsx', 'odt', 'odp', 'ods', 'odg', 'rtf', 'csv', 'md', 'html', 'epub',
+]);
+
+const EXTENSION_MIME_TYPES = {
+  pdf: 'application/pdf',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  bmp: 'image/bmp',
+  svg: 'image/svg+xml',
+  mp4: 'video/mp4',
+  webm: 'video/webm',
+  mov: 'video/quicktime',
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  ogg: 'audio/ogg',
+  txt: 'text/plain',
+  log: 'text/plain',
+  json: 'application/json',
+  xml: 'application/xml',
+};
+
+function getFileExtension(fileName = '') {
+  return fileName.split('.').pop()?.toLowerCase() || '';
+}
+
+function getPreviewContentType(file) {
+  const contentType = (file.contentType || '').toLowerCase();
+  if (contentType && contentType !== 'application/octet-stream') return contentType;
+  return EXTENSION_MIME_TYPES[getFileExtension(file.fileName)] || contentType;
+}
+
+function isNativePreviewType(contentType) {
+  return contentType.startsWith('image/')
+    || contentType.startsWith('video/')
+    || contentType.startsWith('audio/')
+    || contentType === 'application/pdf'
+    || contentType === 'text/plain'
+    || contentType === 'application/json'
+    || contentType === 'application/xml';
+}
+
+function isTextPreviewType(contentType) {
+  return contentType === 'text/plain'
+    || contentType === 'application/json'
+    || contentType === 'application/xml';
+}
+
+function formatBinaryPreview(buffer) {
+  const bytes = new Uint8Array(buffer).subarray(0, 1024);
+  const rows = [];
+  for (let offset = 0; offset < bytes.length; offset += 16) {
+    const row = bytes.subarray(offset, offset + 16);
+    const hex = Array.from(row, (byte) => byte.toString(16).padStart(2, '0')).join(' ');
+    const text = Array.from(row, (byte) => (byte >= 32 && byte <= 126 ? String.fromCharCode(byte) : '.'))
+      .join('');
+    rows.push(`${offset.toString(16).padStart(4, '0')}  ${hex.padEnd(47)}  ${text}`);
+  }
+  return `${rows.join('\n')}\n\nShowing the first ${bytes.length} bytes of the file.`;
+}
+
+function FilePreview({ preview }) {
+  const { file, url, html, rawPreview } = preview;
+  const contentType = file.contentType || '';
+
+  if (contentType.startsWith('image/')) {
+    return <img className="project-file-preview-image" src={url} alt={file.fileName} />;
+  }
+  if (contentType.startsWith('video/')) {
+    return <video className="project-file-preview-media" src={url} controls />;
+  }
+  if (contentType.startsWith('audio/')) {
+    return <audio className="project-file-preview-media" src={url} controls />;
+  }
+  if (contentType === 'application/pdf') {
+    return <iframe className="project-file-preview-frame" src={url} title={`Preview: ${file.fileName}`} />;
+  }
+  if (preview.text !== undefined) {
+    return <pre className="project-file-preview-text">{preview.text}</pre>;
+  }
+  if (html) {
+    return (
+      <iframe
+        className="project-file-preview-frame"
+        srcDoc={html}
+        sandbox=""
+        title={`Preview: ${file.fileName}`}
+      />
+    );
+  }
+  return <pre className="project-file-preview-text">{rawPreview}</pre>;
 }

@@ -4,7 +4,15 @@ export const browseProjects = (params) => api.get('/projects', { params });
 
 export const getProject = (id) => api.get(`/projects/${id}`);
 
-export const createProject = (payload) => api.post('/projects', payload);
+export const getProjectFile = (projectId, fileId, countDownload = false) =>
+	api.get(`/projects/${projectId}/files/${fileId}`, {
+		params: countDownload ? { download: true } : undefined,
+		responseType: 'blob',
+	});
+
+export const createProject = (formData) => api.post('/projects', formData, {
+	headers: { 'Content-Type': 'multipart/form-data' },
+});
 
 export const updateProject = (id, payload) => api.put(`/projects/${id}`, payload);
 
@@ -27,3 +35,5 @@ export const getDepartmentStats = () => api.get('/departments/stats');
 export const getDepartments = () => api.get('/meta/departments');
 
 export const getCategories = () => api.get('/meta/categories');
+
+export const getProjectTechnologies = () => api.get('/meta/technologies');

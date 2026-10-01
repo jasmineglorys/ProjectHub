@@ -10,12 +10,21 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
+import org.springframework.http.HttpMethod;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Objects;
+import java.util.Set;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private static final Set<String> PASSWORD_RESET_PATHS = Set.of(
+            "/api/auth/forgot-password",
+            "/api/auth/verify-otp",
+            "/api/auth/resend-otp",
+            "/api/auth/reset-password");
 
     private final JwtService jwtService;
     private final CustomUserDetailsService userDetailsService;
@@ -24,6 +33,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                    CustomUserDetailsService userDetailsService) {
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;
+    }
+
+    @Override
+    protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
+        return HttpMethod.POST.matches(Objects.requireNonNull(request.getMethod()))
+                && PASSWORD_RESET_PATHS.contains(request.getServletPath());
     }
 
     @Override

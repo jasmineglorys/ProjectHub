@@ -1,10 +1,20 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createProject } from '../api/projectApi';
 import { extractError } from '../api/axiosConfig';
 import { useAuth } from '../context/AuthContext';
 import Alert from '../components/Alert';
-import { CATEGORIES, DEPARTMENTS, PROJECT_YEARS, SAMPLE_IMAGES, imageUrl } from '../constants';
+import {
+  CUSTOM_DOMAIN,
+  DEPARTMENT_DOMAINS,
+  DEPARTMENTS,
+  ACADEMIC_YEARS,
+  PROJECT_YEARS,
+  SAMPLE_IMAGES,
+  getCoverOptions,
+  imageUrl,
+  isValidAcademicYear,
+} from '../constants';
 
 const DEPLOY_LINK_REQUIRED_DEPARTMENTS = ['CSE', 'IT'];
 const OPTIONAL_RESOURCE_DEPARTMENTS = ['ECE', 'EEE', 'Civil', 'Mechanical'];
@@ -12,32 +22,89 @@ const OPTIONAL_RESOURCE_DEPARTMENTS = ['ECE', 'EEE', 'Civil', 'Mechanical'];
 export default function SubmitPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const initialDepartment = user?.department || 'CSE';
+  const initialDomain = DEPARTMENT_DOMAINS[initialDepartment]?.[0] || CUSTOM_DOMAIN;
 
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [serverError, setServerError] = useState('');
   const [errors, setErrors] = useState({});
+  const [coverFile, setCoverFile] = useState(null);
+  const [coverPreview, setCoverPreview] = useState('');
+  const [coverError, setCoverError] = useState('');
 
   const [form, setForm] = useState({
     title: '',
     description: '',
+    achievement: '',
     deployLink: '',
-    department: user?.department || 'CSE',
-    category: 'Web Development',
+    department: initialDepartment,
+    category: initialDomain,
+    otherCategory: '',
     year: new Date().getFullYear(),
+    academicYear: user?.academicYear || '',
     technologies: '',
-    image: SAMPLE_IMAGES[0],
+    image: getCoverOptions(initialDepartment, initialDomain)[0]?.id || SAMPLE_IMAGES[0],
     supportingFiles: [],
     mediaFiles: [],
+    certificateFiles: [],
     teamMembers: [{ name: user?.name || '', rollNo: user?.rollNo || '' }],
   });
 
   const deployLinkRequired = DEPLOY_LINK_REQUIRED_DEPARTMENTS.includes(form.department);
   const showOptionalResources = OPTIONAL_RESOURCE_DEPARTMENTS.includes(form.department);
+  const departmentDomains = DEPARTMENT_DOMAINS[form.department] || [];
+  const isCustomDomain = form.category === CUSTOM_DOMAIN;
+
+  useEffect(() => () => {
+    if (coverPreview) URL.revokeObjectURL(coverPreview);
+  }, [coverPreview]);
 
   function update(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function changeDepartment(department) {
+    const category = DEPARTMENT_DOMAINS[department]?.[0] || CUSTOM_DOMAIN;
+    const image = getCoverOptions(department, category)[0]?.id || SAMPLE_IMAGES[0];
+    setForm((prev) => ({ ...prev, department, category, otherCategory: '', image }));
+    setCoverFile(null);
+    setCoverPreview('');
+    setCoverError('');
+  }
+
+  function changeDomain(category) {
+    const image = getCoverOptions(form.department, category)[0]?.id || SAMPLE_IMAGES[0];
+    setForm((prev) => ({ ...prev, category, otherCategory: '', image }));
+    setCoverFile(null);
+    setCoverPreview('');
+    setCoverError('');
+  }
+
+  function selectBuiltInCover(image) {
+    setForm((prev) => ({ ...prev, image }));
+    setCoverFile(null);
+    setCoverPreview('');
+    setCoverError('');
+  }
+
+  async function handleCoverUpload(event) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    const validationMessage = await validateCoverImage(file);
+    if (validationMessage) {
+      setCoverFile(null);
+      setCoverPreview('');
+      setCoverError(validationMessage);
+      return;
+    }
+
+    setCoverError('');
+    setCoverFile(file);
+    setCoverPreview(URL.createObjectURL(file));
   }
 
   function updateMember(index, field, value) {
@@ -83,6 +150,16 @@ export default function SubmitPage() {
           next.deployLink = 'Enter a valid URL starting with http:// or https://';
         }
       }
+
+      if (isCustomDomain && !form.otherCategory.trim()) {
+        next.category = 'Enter a project domain';
+      } else if (isCustomDomain && form.otherCategory.trim().length > 40) {
+        next.category = 'Project domain must be 40 characters or fewer';
+      }
+
+      if (!isValidAcademicYear(form.academicYear)) {
+        next.academicYear = 'Enter an academic year range like 2023-2027';
+      }
     }
 
     if (current === 2) {
@@ -116,13 +193,14 @@ export default function SubmitPage() {
     const payload = {
       title: form.title.trim(),
       description: form.description.trim(),
+      achievement: form.achievement.trim() || null,
       deployLink: form.deployLink.trim() || null,
       department: form.department,
-      category: form.category,
+      category: isCustomDomain ? form.otherCategory.trim() : form.category,
+      customCategory: isCustomDomain,
       year: Number(form.year),
+      academicYear: form.academicYear.trim(),
       image: form.image,
-      supportingFileNames: form.supportingFiles.map((file) => file.name),
-      mediaFileNames: form.mediaFiles.map((file) => file.name),
       technologies: form.technologies
         .split(',')
         .map((t) => t.trim())
@@ -132,9 +210,16 @@ export default function SubmitPage() {
         .map((m) => ({ name: m.name.trim(), rollNo: m.rollNo.trim() })),
     };
 
+    const formData = new FormData();
+    formData.append('project', new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+    form.supportingFiles.forEach((file) => formData.append('supportingFiles', file));
+    form.mediaFiles.forEach((file) => formData.append('mediaFiles', file));
+    form.certificateFiles.forEach((file) => formData.append('certificateFiles', file));
+    if (coverFile) formData.append('coverImage', coverFile);
+
     setSubmitting(true);
     try {
-      await createProject(payload);
+      await createProject(formData);
       setSubmitted(true);
     } catch (err) {
       setServerError(extractError(err, 'Could not submit the project.'));
@@ -216,6 +301,29 @@ export default function SubmitPage() {
               </label>
 
               <label className="field">
+                <span>Awards &amp; achievements (optional)</span>
+                <textarea
+                  rows={3}
+                  maxLength={2000}
+                  value={form.achievement}
+                  onChange={(e) => update('achievement', e.target.value)}
+                  placeholder="Describe awards, competition placements, or other project achievements"
+                />
+                <small className="hint">Leave blank if the project has no achievements.</small>
+              </label>
+
+              <label className="field">
+                <span>Achievement certificates (optional)</span>
+                <input
+                  type="file"
+                  accept="application/pdf,image/jpeg,image/png"
+                  multiple
+                  onChange={(e) => update('certificateFiles', Array.from(e.target.files))}
+                />
+                <small className="hint">Upload PDF, JPEG, or PNG certificates, up to 10 files.</small>
+              </label>
+
+              <label className="field">
                 <span>Project Deploy Link {deployLinkRequired ? '*' : '(optional)'}</span>
                 <input
                   type="url"
@@ -259,7 +367,7 @@ export default function SubmitPage() {
                   <span>Department *</span>
                   <select
                     value={form.department}
-                    onChange={(e) => update('department', e.target.value)}
+                    onChange={(e) => changeDepartment(e.target.value)}
                   >
                     {DEPARTMENTS.map((d) => (
                       <option key={d} value={d}>
@@ -270,19 +378,34 @@ export default function SubmitPage() {
                 </label>
 
                 <label className="field">
-                  <span>Category *</span>
+                  <span>Project Domain *</span>
                   <select
                     value={form.category}
-                    onChange={(e) => update('category', e.target.value)}
+                    onChange={(e) => changeDomain(e.target.value)}
                   >
-                    {CATEGORIES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
+                    {departmentDomains.map((domain) => (
+                      <option key={domain} value={domain}>
+                        {domain}
                       </option>
                     ))}
+                    <option value={CUSTOM_DOMAIN}>Other (type your own)</option>
                   </select>
                 </label>
               </div>
+
+              {isCustomDomain && (
+                <label className="field">
+                  <span>Custom Project Domain *</span>
+                  <input
+                    type="text"
+                    maxLength={40}
+                    value={form.otherCategory}
+                    onChange={(e) => update('otherCategory', e.target.value)}
+                    placeholder="Enter your project domain"
+                  />
+                  {errors.category && <small className="field-error">{errors.category}</small>}
+                </label>
+              )}
 
               <label className="field">
                 <span>Project Year</span>
@@ -293,6 +416,25 @@ export default function SubmitPage() {
                     </option>
                   ))}
                 </select>
+              </label>
+
+              <label className="field">
+                <span>Academic Year *</span>
+                <select
+                  value={form.academicYear}
+                  onChange={(e) => update('academicYear', e.target.value)}
+                  aria-invalid={Boolean(errors.academicYear)}
+                >
+                  <option value="">Select academic year</option>
+                  {ACADEMIC_YEARS.map((academicYear) => (
+                    <option key={academicYear} value={academicYear}>
+                      {academicYear}
+                    </option>
+                  ))}
+                </select>
+                {errors.academicYear && (
+                  <small className="field-error">{errors.academicYear}</small>
+                )}
               </label>
             </div>
           )}
@@ -361,29 +503,42 @@ export default function SubmitPage() {
           {step === 3 && (
             <div className="form-step">
               <h2 className="step-title">Cover image</h2>
-              <p className="muted small">Pick a representative image for your project.</p>
+              <p className="muted small">
+                Choose an image for {isCustomDomain ? 'your domain' : form.category}, or upload your own.
+              </p>
 
               <div className="image-picker">
-                {SAMPLE_IMAGES.map((img) => (
+                {getCoverOptions(form.department, isCustomDomain ? form.otherCategory : form.category).map((cover) => (
                   <button
                     type="button"
-                    key={img}
-                    className={form.image === img ? 'image-option selected' : 'image-option'}
-                    onClick={() => update('image', img)}
+                    key={cover.id}
+                    className={form.image === cover.id && !coverFile ? 'image-option selected' : 'image-option'}
+                    onClick={() => selectBuiltInCover(cover.id)}
+                    aria-label={`Select ${cover.label} cover`}
                   >
-                    <img src={imageUrl(img, 300, 150)} alt="Cover option" />
+                    <img src={imageUrl(cover.id, 300, 150)} alt={cover.label} />
+                    <span>{cover.label}</span>
                   </button>
                 ))}
               </div>
 
+              <label className="field cover-upload-field">
+                <span>Upload your own cover image (optional)</span>
+                <input type="file" accept="image/jpeg,image/png" onChange={handleCoverUpload} />
+                <small className="hint">
+                  JPEG or PNG, exactly 1200 × 630 pixels, maximum 5 MB.
+                </small>
+                {coverError && <small className="field-error">{coverError}</small>}
+              </label>
+
               <div className="preview-box">
                 <strong className="preview-label">SUBMISSION PREVIEW</strong>
                 <div className="preview-body">
-                  <img src={imageUrl(form.image, 200, 120)} alt="Preview" />
+                  <img src={coverPreview || imageUrl(form.image, 200, 120)} alt="Cover preview" />
                   <div>
                     <strong>{form.title || 'Your project title'}</strong>
                     <p className="muted small">
-                      {form.department} · {form.category} · {form.year}
+                      {form.department} · {isCustomDomain ? form.otherCategory || 'Other' : form.category} · {form.year}
                     </p>
                     <p className="muted small">
                       {form.teamMembers
@@ -424,4 +579,31 @@ export default function SubmitPage() {
       </div>
     </div>
   );
+}
+
+async function validateCoverImage(file) {
+  if (!['image/jpeg', 'image/png'].includes(file.type)) {
+    return 'Choose a JPEG or PNG image.';
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    return 'Cover image must be 5 MB or smaller.';
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const dimensions = await new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight });
+      image.onerror = reject;
+      image.src = objectUrl;
+    });
+    if (dimensions.width !== 1200 || dimensions.height !== 630) {
+      return 'Cover image must be exactly 1200 × 630 pixels.';
+    }
+  } catch {
+    return 'The selected image could not be read.';
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+  return '';
 }

@@ -17,6 +17,7 @@ export default function ProfilePage() {
     pending: [],
     approved: [],
     rejected: [],
+    changesRequested: [],
     liked: [],
     comments: [],
   });
@@ -32,6 +33,7 @@ export default function ProfilePage() {
       pending: current.pending.map((p) => (p.id === id ? { ...p, ...patch } : p)),
       approved: current.approved.map((p) => (p.id === id ? { ...p, ...patch } : p)),
       rejected: current.rejected.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+      changesRequested: current.changesRequested.map((p) => (p.id === id ? { ...p, ...patch } : p)),
       liked: current.liked.map((p) => (p.id === id ? { ...p, ...patch } : p)),
     }));
     setSaved((list) => {
@@ -72,11 +74,17 @@ export default function ProfilePage() {
     };
   }, []);
 
-  const myProjects = [...activity.pending, ...activity.approved, ...activity.rejected];
+  const myProjects = [
+    ...activity.pending,
+    ...activity.approved,
+    ...activity.rejected,
+    ...activity.changesRequested,
+  ];
   const totalLikes = myProjects.reduce((sum, p) => sum + (p.likes || 0), 0);
   const displayed = activity[tab] || [];
   const tabs = [
     ['pending', 'Pending'],
+    ['changesRequested', 'Changes Requested'],
     ['approved', 'Approved'],
     ['rejected', 'Rejected'],
     ['liked', 'Liked'],
@@ -93,6 +101,7 @@ export default function ProfilePage() {
             <div className="profile-meta">
               <span>🎓 {user.department}</span>
               <span>· Year {user.year}</span>
+              {user.academicYear && <span>· Academic year {user.academicYear}</span>}
               <span className="mono">· {user.rollNo}</span>
               <span>· {user.email}</span>
             </div>
@@ -169,17 +178,17 @@ export default function ProfilePage() {
           />
         )}
 
-        {notifications.length > 0 && (
-          <section className="panel notification-panel">
-            <div className="section-heading-row">
-              <div>
-                <h2>Notifications</h2>
-                <p className="muted small">Updates about your projects and comments.</p>
-              </div>
-              <span className="badge-muted">
-                {notifications.filter((notification) => !notification.read).length} unread
-              </span>
+        <section className="panel notification-panel">
+          <div className="section-heading-row">
+            <div>
+              <h2>Notifications</h2>
+              <p className="muted small">Updates about posted projects, your projects, and comments.</p>
             </div>
+            <span className="badge-muted">
+              {notifications.filter((notification) => !notification.read).length} unread
+            </span>
+          </div>
+          {notifications.length > 0 ? (
             <div className="notification-list">
               {notifications.map((notification) => (
                 <div
@@ -187,7 +196,26 @@ export default function ProfilePage() {
                   className={notification.read ? 'notification-item' : 'notification-item unread'}
                 >
                   <div>
-                    <strong>{notification.message}</strong>
+                    {notification.type === 'NEW_PROJECT' ? (
+                      <div className="notification-project-details">
+                        <strong>New project posted</strong>
+                        <p className="notification-project-title">{notification.projectTitle}</p>
+                        <small className="muted">
+                          {notification.projectDepartment} · {notification.projectCategory}
+                        </small>
+                        <p className="notification-project-description">
+                          {notification.projectDescription}
+                        </p>
+                      </div>
+                    ) : notification.type === 'CHANGES_REQUESTED' ? (
+                      <div className="notification-project-details">
+                        <strong>Changes requested</strong>
+                        <p className="notification-project-title">{notification.projectTitle}</p>
+                        <p className="notification-project-description">{notification.message}</p>
+                      </div>
+                    ) : (
+                      <strong>{notification.message}</strong>
+                    )}
                     <small className="muted">{formatNotificationDate(notification.createdAt)}</small>
                   </div>
                   <div className="notification-actions">
@@ -220,8 +248,10 @@ export default function ProfilePage() {
                 </div>
               ))}
             </div>
-          </section>
-        )}
+          ) : (
+            <p className="muted notification-empty">No notifications yet.</p>
+          )}
+        </section>
       </div>
     </div>
   );
@@ -247,6 +277,7 @@ function formatDate(value) {
 function emptyActivityText(tab) {
   const messages = {
     pending: "You don't have any projects waiting for approval.",
+    changesRequested: 'No projects currently need changes.',
     approved: "You don't have any approved projects yet.",
     rejected: "You don't have any rejected projects.",
     liked: "You haven't liked any projects yet.",
@@ -269,7 +300,9 @@ function ActivityProjectList({ projects, tab, emptyTitle, emptyText, onLike, onB
     ? 'Approval date'
     : tab === 'rejected'
       ? 'Rejection date'
-      : 'Submission date';
+      : tab === 'changesRequested'
+        ? 'Changes requested'
+        : 'Submission date';
 
   return (
     <div className="profile-activity-list">
@@ -281,7 +314,7 @@ function ActivityProjectList({ projects, tab, emptyTitle, emptyText, onLike, onB
                 {project.department}
               </span>
               <span className="badge-muted">{project.category}</span>
-              {tab && <span className={`status-badge status-${project.status.toLowerCase()}`}>{project.status}</span>}
+              {tab && <span className={`status-badge status-${project.status.toLowerCase()}`}>{project.status.replaceAll('_', ' ')}</span>}
             </div>
             <h3>{project.title}</h3>
             {tab === 'liked' && <p className="muted small">By {project.submittedBy}</p>}

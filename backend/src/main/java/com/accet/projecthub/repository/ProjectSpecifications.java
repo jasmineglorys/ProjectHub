@@ -34,6 +34,31 @@ public final class ProjectSpecifications {
                 category == null ? null : cb.equal(root.get("category"), category);
     }
 
+    public static Specification<Project> hasAcademicYear(String academicYear) {
+        return (root, query, cb) ->
+                academicYear == null ? null : cb.equal(root.get("academicYear"), academicYear);
+    }
+
+    public static Specification<Project> hasProjectYear(Integer year) {
+        return (root, query, cb) -> year == null ? null : cb.equal(root.get("year"), year);
+    }
+
+    public static Specification<Project> hasTechnology(String technology) {
+        return (root, query, cb) -> {
+            if (technology == null) return null;
+            Join<Project, String> technologyJoin = root.join("technologies", JoinType.INNER);
+            query.distinct(true);
+            return cb.equal(cb.lower(technologyJoin), technology.toLowerCase());
+        };
+    }
+
+        public static Specification<Project> hasAchievement(boolean winning) {
+        return (root, query, cb) -> winning
+            ? cb.and(cb.isNotNull(root.get("achievement")),
+                cb.notEqual(cb.trim(root.get("achievement")), ""))
+            : null;
+        }
+
     /** Matches title, description, any technology, or any team member name. */
     public static Specification<Project> matchesSearch(String search) {
         return (root, query, cb) -> {
@@ -47,6 +72,9 @@ public final class ProjectSpecifications {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.like(cb.lower(root.get("title")), pattern));
             predicates.add(cb.like(cb.lower(root.get("description")), pattern));
+            predicates.add(cb.like(cb.lower(root.get("department")), pattern));
+            predicates.add(cb.like(cb.lower(root.get("category")), pattern));
+            predicates.add(cb.like(root.get("year").as(String.class), pattern));
 
             Join<Project, String> techJoin = root.join("technologies", JoinType.LEFT);
             predicates.add(cb.like(cb.lower(techJoin), pattern));

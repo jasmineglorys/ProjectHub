@@ -43,6 +43,9 @@ export default function Header() {
           <NavLink to="/browse" onClick={close}>
             Projects
           </NavLink>
+          <NavLink to="/winning-projects" onClick={close}>
+            Winning Projects
+          </NavLink>
           <NavLink to="/departments" onClick={close}>
             Departments
           </NavLink>

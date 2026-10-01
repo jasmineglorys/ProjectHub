@@ -43,6 +43,9 @@ public class User {
     @Column(name = "study_year")
     private Integer year;
 
+    @Column(name = "academic_year", length = 9)
+    private String academicYear;
+
     /** BCrypt hash. Never a plain-text password. */
     @Column(name = "password_hash", nullable = false, length = 100)
     private String password;

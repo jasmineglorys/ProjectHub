@@ -60,6 +60,12 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request, null);
     }
 
+    @ExceptionHandler(EmailDeliveryException.class)
+    public ResponseEntity<ApiError> handleEmailDelivery(EmailDeliveryException ex,
+                                                        HttpServletRequest request) {
+        return build(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage(), request, null);
+    }
+
     @ExceptionHandler(UnauthorizedActionException.class)
     public ResponseEntity<ApiError> handleForbidden(UnauthorizedActionException ex,
                                                     HttpServletRequest request) {
@@ -82,6 +88,6 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleGeneric(Exception ex, HttpServletRequest request) {
         return build(HttpStatus.INTERNAL_SERVER_ERROR,
-                "Unexpected server error: " + ex.getMessage(), request, null);
+                "Unexpected server error", request, null);
     }
 }
