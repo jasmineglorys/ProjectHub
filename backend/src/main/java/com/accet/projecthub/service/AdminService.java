@@ -56,7 +56,7 @@ public class AdminService {
             .orElseThrow(() -> new ResourceNotFoundException(
                 "Project not found with id " + projectId));
 
-        return projectRepository.findAllWithTechnologiesExcept(projectId).stream()
+        return projectRepository.findApprovedWithTechnologiesExcept(projectId, ProjectStatus.APPROVED).stream()
             .map(candidate -> SimilarProjectDto.builder()
                 .id(candidate.getId())
                 .title(candidate.getTitle())

@@ -18,8 +18,11 @@ public interface ProjectRepository extends JpaRepository<Project, Long>,
 
     List<Project> findByStatusOrderByIdDesc(ProjectStatus status);
 
-    @Query("SELECT DISTINCT p FROM Project p LEFT JOIN FETCH p.technologies WHERE p.id <> :projectId")
-    List<Project> findAllWithTechnologiesExcept(@Param("projectId") Long projectId);
+        @Query("SELECT DISTINCT p FROM Project p LEFT JOIN FETCH p.technologies "
+            + "WHERE p.id <> :projectId AND p.status = :status")
+        List<Project> findApprovedWithTechnologiesExcept(
+            @Param("projectId") Long projectId,
+            @Param("status") ProjectStatus status);
 
         @Query("SELECT DISTINCT technology FROM Project p JOIN p.technologies technology "
             + "WHERE p.status = :status ORDER BY technology")

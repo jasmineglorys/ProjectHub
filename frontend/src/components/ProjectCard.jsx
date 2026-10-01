@@ -63,7 +63,7 @@ export default function ProjectCard({
               <span className="meta-small">Uploaded {formatDate(project.submittedAt)}</span>
             )}
             {showAcademicInfo && project.academicYear && (
-              <span className="meta-small">Student academic year {project.academicYear}</span>
+              <span className="meta-small">Academic year {project.academicYear}</span>
             )}
           </div>
           <div className="card-actions">
