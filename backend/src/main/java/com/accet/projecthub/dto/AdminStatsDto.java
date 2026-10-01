@@ -19,8 +19,10 @@ public class AdminStatsDto {
     private long pending;
     private long approved;
     private long rejected;
+    private long changesRequested;
     private long totalStudents;
     private Map<String, Long> byDepartment;
     private Map<String, Long> byCategory;
+    private Map<String, Map<String, Long>> departmentInsights;
     private List<ProjectDto> recentActivity;
 }

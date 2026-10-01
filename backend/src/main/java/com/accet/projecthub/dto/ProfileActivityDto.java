@@ -11,6 +11,7 @@ public class ProfileActivityDto {
     private List<ProjectDto> pending;
     private List<ProjectDto> approved;
     private List<ProjectDto> rejected;
+    private List<ProjectDto> changesRequested;
     private List<ProjectDto> liked;
     private List<CommentDto> comments;
 }

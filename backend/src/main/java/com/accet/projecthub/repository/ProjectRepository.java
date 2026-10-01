@@ -18,10 +18,21 @@ public interface ProjectRepository extends JpaRepository<Project, Long>,
 
     List<Project> findByStatusOrderByIdDesc(ProjectStatus status);
 
+    @Query("SELECT DISTINCT p FROM Project p LEFT JOIN FETCH p.technologies WHERE p.id <> :projectId")
+    List<Project> findAllWithTechnologiesExcept(@Param("projectId") Long projectId);
+
+        @Query("SELECT DISTINCT technology FROM Project p JOIN p.technologies technology "
+            + "WHERE p.status = :status ORDER BY technology")
+        List<String> findTechnologiesByStatus(@Param("status") ProjectStatus status);
+
     long countByStatus(ProjectStatus status);
 
     @Query("SELECT p.department, COUNT(p) FROM Project p WHERE p.status = :status GROUP BY p.department")
     List<Object[]> countGroupedByDepartment(@Param("status") ProjectStatus status);
+
+        @Query("SELECT p.department, p.category, COUNT(p) FROM Project p "
+            + "GROUP BY p.department, p.category ORDER BY p.department, p.category")
+        List<Object[]> countGroupedByDepartmentAndCategory();
 
     @Query("SELECT p.category, COUNT(p) FROM Project p WHERE p.status = :status GROUP BY p.category")
     List<Object[]> countGroupedByCategory(@Param("status") ProjectStatus status);

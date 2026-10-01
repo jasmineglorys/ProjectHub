@@ -37,6 +37,9 @@ public class Project {
     @Column(nullable = false, length = 4000)
     private String description;
 
+    @Column(length = 2000)
+    private String achievement;
+
     @Column(name = "deploy_link", length = 500)
     private String deployLink;
 
@@ -59,11 +62,21 @@ public class Project {
     @Column(nullable = false, length = 20)
     private ProjectStatus status;
 
+    @Column(name = "rejected_at")
+    private LocalDateTime rejectedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "rejected_by", foreignKey = @ForeignKey(name = "fk_projects_rejected_by"))
+    private User rejectedBy;
+
     @Column(name = "likes_count", nullable = false)
     private Integer likesCount;
 
     @Column(name = "views_count", nullable = false)
     private Integer viewsCount;
+
+    @Column(name = "downloads_count", nullable = false)
+    private Integer downloadsCount;
 
     @Column(name = "submitted_at", nullable = false)
     private LocalDate submittedAt;
@@ -95,6 +108,7 @@ public class Project {
         if (status == null) status = ProjectStatus.PENDING;
         if (likesCount == null) likesCount = 0;
         if (viewsCount == null) viewsCount = 0;
+        if (downloadsCount == null) downloadsCount = 0;
         if (submittedAt == null) submittedAt = LocalDate.now();
         updatedAt = LocalDateTime.now();
     }

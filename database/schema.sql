@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS projects (
     id           BIGINT        NOT NULL AUTO_INCREMENT,
     title        VARCHAR(200)  NOT NULL,
     description  VARCHAR(4000) NOT NULL,
+    achievement  VARCHAR(2000) DEFAULT NULL,
     deploy_link  VARCHAR(500)  DEFAULT NULL,
     department   VARCHAR(40)   NOT NULL,
     category     VARCHAR(40)   NOT NULL,
@@ -48,8 +49,11 @@ CREATE TABLE IF NOT EXISTS projects (
     academic_year VARCHAR(9)   DEFAULT NULL,
     image        VARCHAR(200)  DEFAULT NULL,
     status       VARCHAR(20)   NOT NULL DEFAULT 'PENDING',
+    rejected_at  DATETIME(6)   DEFAULT NULL,
+    rejected_by  BIGINT        DEFAULT NULL,
     likes_count  INT           NOT NULL DEFAULT 0,
     views_count  INT           NOT NULL DEFAULT 0,
+    downloads_count INT         NOT NULL DEFAULT 0,
     submitted_at DATE          NOT NULL,
     updated_at   DATETIME(6)   DEFAULT NULL,
     submitted_by BIGINT        NOT NULL,
@@ -58,7 +62,9 @@ CREATE TABLE IF NOT EXISTS projects (
     KEY idx_projects_department (department),
     KEY idx_projects_category   (category),
     CONSTRAINT fk_projects_user FOREIGN KEY (submitted_by)
-        REFERENCES users (id) ON DELETE CASCADE
+        REFERENCES users (id) ON DELETE CASCADE,
+    CONSTRAINT fk_projects_rejected_by FOREIGN KEY (rejected_by)
+        REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE = InnoDB;
 
 -- ------------------------------------------------------------
@@ -170,4 +176,25 @@ CREATE TABLE IF NOT EXISTS notifications (
         REFERENCES users (id) ON DELETE CASCADE,
     CONSTRAINT fk_notification_project FOREIGN KEY (project_id)
         REFERENCES projects (id) ON DELETE CASCADE
+) ENGINE = InnoDB;
+
+-- ------------------------------------------------------------
+-- 10. password_reset_challenges
+-- OTPs and reset grants are stored only as hashes.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS password_reset_challenges (
+    id                  BIGINT       NOT NULL AUTO_INCREMENT,
+    email               VARCHAR(150) NOT NULL,
+    otp_hash            VARCHAR(100) DEFAULT NULL,
+    expires_at          DATETIME(6)  DEFAULT NULL,
+    attempts            INT          NOT NULL DEFAULT 0,
+    last_sent_at        DATETIME(6)  DEFAULT NULL,
+    window_started_at   DATETIME(6)  DEFAULT NULL,
+    send_count          INT          NOT NULL DEFAULT 0,
+    verified_token_hash CHAR(64)     DEFAULT NULL,
+    verified_until      DATETIME(6)  DEFAULT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_password_reset_email UNIQUE (email),
+    CONSTRAINT uk_password_reset_grant UNIQUE (verified_token_hash),
+    KEY idx_password_reset_expiry (expires_at)
 ) ENGINE = InnoDB;

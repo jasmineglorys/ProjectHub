@@ -26,6 +26,9 @@ public class ProjectRequest {
     @Size(min = 20, max = 4000, message = "Description must be between 20 and 4000 characters")
     private String description;
 
+    @Size(max = 2000, message = "Achievement details must be at most 2000 characters")
+    private String achievement;
+
     @Size(max = 500, message = "Deploy link must be at most 500 characters")
     private String deployLink;
 

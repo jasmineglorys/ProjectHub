@@ -47,12 +47,15 @@ public class ProjectController {
             @RequestParam(required = false) String department,
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String academicYear,
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) String technology,
+            @RequestParam(defaultValue = "false") boolean winning,
             @RequestParam(defaultValue = "popular") String sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "12") int size) {
 
         return ResponseEntity.ok(projectService.browse(
-            search, department, category, academicYear, sort, page, size,
+            search, department, category, academicYear, year, technology, winning, sort, page, size,
             SecurityUtils.currentUserId()));
     }
 
@@ -82,19 +85,21 @@ public class ProjectController {
             @Valid @RequestPart("project") ProjectRequest request,
             @RequestPart(value = "supportingFiles", required = false) List<MultipartFile> supportingFiles,
             @RequestPart(value = "mediaFiles", required = false) List<MultipartFile> mediaFiles,
+            @RequestPart(value = "certificateFiles", required = false) List<MultipartFile> certificateFiles,
             @RequestPart(value = "coverImage", required = false) MultipartFile coverImage,
             @AuthenticationPrincipal CustomUserDetails principal) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(projectService.create(request, supportingFiles, mediaFiles,
-                        coverImage, principal.getId()));
+                    certificateFiles, coverImage, principal.getId()));
     }
 
     @GetMapping("/{projectId}/files/{fileId}")
     public ResponseEntity<ByteArrayResource> downloadFile(
             @PathVariable Long projectId,
-            @PathVariable Long fileId) {
+            @PathVariable Long fileId,
+            @RequestParam(defaultValue = "false") boolean download) {
         var file = projectService.getFile(
-            projectId, fileId, SecurityUtils.currentUserId(), SecurityUtils.isAdmin());
+            projectId, fileId, SecurityUtils.currentUserId(), SecurityUtils.isAdmin(), download);
         MediaType mediaType = MediaType.APPLICATION_OCTET_STREAM;
         if (file.getContentType() != null) {
             try {

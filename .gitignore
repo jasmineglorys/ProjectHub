@@ -1,5 +1,7 @@
 # Backend
 backend/target/
+.env
+backend/.env
 *.class
 
 # Frontend

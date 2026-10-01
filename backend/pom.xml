@@ -66,6 +66,12 @@
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
 
+        <!-- SMTP email delivery for password reset codes -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
         <!-- MySQL -->
         <dependency>
             <groupId>com.mysql</groupId>

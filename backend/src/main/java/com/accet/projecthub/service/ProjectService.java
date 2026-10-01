@@ -69,7 +69,8 @@ public class ProjectService {
 
     @Transactional(readOnly = true)
     public PageResponse<ProjectDto> browse(String search, String department, String category,
-                                           String academicYear, String sort,
+                                           String academicYear, Integer year, String technology,
+                                           boolean winning, String sort,
                                            int page, int size, Long currentUserId) {
 
         Sort sorting = switch (sort == null ? "popular" : sort) {
@@ -86,6 +87,9 @@ public class ProjectService {
                 .and(ProjectSpecifications.hasDepartment(blankToNull(department)))
                 .and(ProjectSpecifications.hasCategory(blankToNull(category)))
                 .and(ProjectSpecifications.hasAcademicYear(blankToNull(academicYear)))
+                .and(ProjectSpecifications.hasProjectYear(year))
+                .and(ProjectSpecifications.hasTechnology(blankToNull(technology)))
+                .and(ProjectSpecifications.hasAchievement(winning))
                 .and(ProjectSpecifications.matchesSearch(blankToNull(search)));
 
         Page<Project> result = projectRepository.findAll(spec, pageable);
@@ -105,6 +109,11 @@ public class ProjectService {
                 .totalPages(result.getTotalPages())
                 .last(result.isLast())
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> getAvailableTechnologies() {
+        return projectRepository.findTechnologiesByStatus(ProjectStatus.APPROVED);
     }
 
     @Transactional
@@ -152,7 +161,8 @@ public class ProjectService {
 
     @Transactional
     public ProjectDto create(ProjectRequest request, List<MultipartFile> supportingFiles,
-                             List<MultipartFile> mediaFiles, MultipartFile coverImage, Long userId) {
+                             List<MultipartFile> mediaFiles, List<MultipartFile> certificateFiles,
+                             MultipartFile coverImage, Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
@@ -161,10 +171,12 @@ public class ProjectService {
         Project project = Project.builder()
                 .title(request.getTitle().trim())
                 .description(request.getDescription().trim())
+                .achievement(blankToNull(request.getAchievement()))
                 .deployLink(blankToNull(request.getDeployLink()))
                 .department(request.getDepartment())
                 .category(request.getCategory().trim())
                 .year(request.getYear())
+                .academicYear(blankToNull(request.getAcademicYear()))
                 .image(request.getImage() == null || request.getImage().isBlank()
                         ? Constants.DEFAULT_IMAGE : request.getImage())
                 .status(ProjectStatus.PENDING)
@@ -182,11 +194,17 @@ public class ProjectService {
         saveCoverImage(saved, coverImage);
         saveFiles(saved, supportingFiles, "SUPPORTING");
         saveFiles(saved, mediaFiles, "MEDIA");
+        if (blankToNull(request.getAchievement()) == null
+                && certificateFiles != null && !certificateFiles.isEmpty()) {
+            throw new BadRequestException("Enter achievement details before uploading certificates");
+        }
+        saveFiles(saved, certificateFiles, "CERTIFICATE");
         return mapper.toDto(saved, likedIds(userId), bookmarkedIds(userId));
     }
 
-    @Transactional(readOnly = true)
-    public ProjectFile getFile(Long projectId, Long fileId, Long currentUserId, boolean isAdmin) {
+    @Transactional
+    public ProjectFile getFile(Long projectId, Long fileId, Long currentUserId,
+                               boolean isAdmin, boolean countDownload) {
         ProjectFile file = fileRepository.findByIdAndProjectId(fileId, projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("File not found"));
         Project project = file.getProject();
@@ -194,6 +212,11 @@ public class ProjectService {
                 && project.getSubmittedBy().getId().equals(currentUserId);
         if (project.getStatus() != ProjectStatus.APPROVED && !isOwner && !isAdmin) {
             throw new ResourceNotFoundException("File not found");
+        }
+        file.getData();
+        if (countDownload) {
+            project.setDownloadsCount(project.getDownloadsCount() + 1);
+            projectRepository.save(project);
         }
         return file;
     }
@@ -212,10 +235,12 @@ public class ProjectService {
 
         project.setTitle(request.getTitle().trim());
         project.setDescription(request.getDescription().trim());
+        project.setAchievement(blankToNull(request.getAchievement()));
         project.setDeployLink(blankToNull(request.getDeployLink()));
         project.setDepartment(request.getDepartment());
         project.setCategory(request.getCategory().trim());
         project.setYear(request.getYear());
+        project.setAcademicYear(blankToNull(request.getAcademicYear()));
         if (request.getImage() != null && !request.getImage().isBlank()) {
             project.setImage(request.getImage());
         }
@@ -297,6 +322,7 @@ public class ProjectService {
                         "Project not found with id " + projectId));
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        long currentCount = bookmarkRepository.countByProjectId(projectId);
 
         return bookmarkRepository.findByUserIdAndProjectId(userId, projectId)
                 .map(existing -> {
@@ -305,6 +331,7 @@ public class ProjectService {
                             .projectId(projectId)
                             .active(false)
                             .likes(project.getLikesCount())
+                            .bookmarks(Math.max(0, currentCount - 1))
                             .message("Bookmark removed")
                             .build();
                 })
@@ -315,6 +342,7 @@ public class ProjectService {
                             .projectId(projectId)
                             .active(true)
                             .likes(project.getLikesCount())
+                            .bookmarks(currentCount + 1)
                             .message("Project saved")
                             .build();
                 });
