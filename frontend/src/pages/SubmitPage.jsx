@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createProject } from '../api/projectApi';
 import { extractError } from '../api/axiosConfig';
@@ -28,6 +28,8 @@ export default function SubmitPage() {
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const submissionStarted = useRef(false);
+  const submitButtonClicked = useRef(false);
   const [serverError, setServerError] = useState('');
   const [errors, setErrors] = useState({});
   const [coverFile, setCoverFile] = useState(null);
@@ -65,6 +67,17 @@ export default function SubmitPage() {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
+  function handleFormKeyDown(event) {
+    if (event.key === 'Enter') {
+      const target = event.target;
+      if (target && ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) {
+        if (target.type !== 'file') {
+          event.preventDefault();
+        }
+      }
+    }
+  }
+
   function changeDepartment(department) {
     const category = DEPARTMENT_DOMAINS[department]?.[0] || CUSTOM_DOMAIN;
     const image = getCoverOptions(department, category)[0]?.id || SAMPLE_IMAGES[0];
@@ -87,6 +100,12 @@ export default function SubmitPage() {
     setCoverFile(null);
     setCoverPreview('');
     setCoverError('');
+  }
+
+  function showFallbackCover(event) {
+    if (!event.currentTarget.src.endsWith('/accet.jpeg')) {
+      event.currentTarget.src = '/accet.jpeg';
+    }
   }
 
   async function handleCoverUpload(event) {
@@ -183,6 +202,11 @@ export default function SubmitPage() {
 
   async function handleSubmit(event) {
     event.preventDefault();
+    if (!submitButtonClicked.current) return;
+    submitButtonClicked.current = false;
+    if (step !== 3) return;
+    if (submissionStarted.current) return;
+
     setServerError('');
 
     if (!validateStep(1) || !validateStep(2)) {
@@ -217,11 +241,13 @@ export default function SubmitPage() {
     form.certificateFiles.forEach((file) => formData.append('certificateFiles', file));
     if (coverFile) formData.append('coverImage', coverFile);
 
+    submissionStarted.current = true;
     setSubmitting(true);
     try {
       await createProject(formData);
       setSubmitted(true);
     } catch (err) {
+      submissionStarted.current = false;
       setServerError(extractError(err, 'Could not submit the project.'));
     } finally {
       setSubmitting(false);
@@ -269,7 +295,7 @@ export default function SubmitPage() {
       </div>
 
       <div className="page-narrow section">
-        <form className="panel" onSubmit={handleSubmit} noValidate>
+        <form className="panel" onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} noValidate>
           <Alert message={serverError} onClose={() => setServerError('')} />
 
           {step === 1 && (
@@ -516,7 +542,7 @@ export default function SubmitPage() {
                     onClick={() => selectBuiltInCover(cover.id)}
                     aria-label={`Select ${cover.label} cover`}
                   >
-                    <img src={imageUrl(cover.id, 300, 150)} alt={cover.label} />
+                    <img src={imageUrl(cover.id, 300, 150)} alt={cover.label} onError={showFallbackCover} />
                     <span>{cover.label}</span>
                   </button>
                 ))}
@@ -534,7 +560,11 @@ export default function SubmitPage() {
               <div className="preview-box">
                 <strong className="preview-label">SUBMISSION PREVIEW</strong>
                 <div className="preview-body">
-                  <img src={coverPreview || imageUrl(form.image, 200, 120)} alt="Cover preview" />
+                  <img
+                    src={coverPreview || imageUrl(form.image, 200, 120)}
+                    alt="Cover preview"
+                    onError={showFallbackCover}
+                  />
                   <div>
                     <strong>{form.title || 'Your project title'}</strong>
                     <p className="muted small">
@@ -570,7 +600,12 @@ export default function SubmitPage() {
                 Next →
               </button>
             ) : (
-              <button type="submit" className="btn btn-gold" disabled={submitting}>
+              <button
+                type="submit"
+                className="btn btn-gold"
+                disabled={submitting}
+                onClick={() => { submitButtonClicked.current = true; }}
+              >
                 {submitting ? 'Submitting…' : 'Submit Project 🚀'}
               </button>
             )}

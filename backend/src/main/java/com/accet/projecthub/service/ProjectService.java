@@ -168,6 +168,11 @@ public class ProjectService {
 
         validateTaxonomy(request);
 
+        String image = request.getImage();
+        if (image == null || image.isBlank()) {
+            image = Constants.resolveProjectImage(request.getCategory());
+        }
+
         Project project = Project.builder()
                 .title(request.getTitle().trim())
                 .description(request.getDescription().trim())
@@ -177,8 +182,7 @@ public class ProjectService {
                 .category(request.getCategory().trim())
                 .year(request.getYear())
                 .academicYear(blankToNull(request.getAcademicYear()))
-                .image(request.getImage() == null || request.getImage().isBlank()
-                        ? Constants.DEFAULT_IMAGE : request.getImage())
+                .image(image)
                 .status(ProjectStatus.PENDING)
                 .likesCount(0)
                 .viewsCount(0)
@@ -241,9 +245,15 @@ public class ProjectService {
         project.setCategory(request.getCategory().trim());
         project.setYear(request.getYear());
         project.setAcademicYear(blankToNull(request.getAcademicYear()));
-        if (request.getImage() != null && !request.getImage().isBlank()) {
-            project.setImage(request.getImage());
+
+        String requestedImage = blankToNull(request.getImage());
+        boolean categoryChanged = !request.getCategory().trim().equals(project.getCategory());
+        if (requestedImage != null) {
+            project.setImage(requestedImage);
+        } else if (categoryChanged || project.getImage() == null || project.getImage().isBlank()) {
+            project.setImage(Constants.resolveProjectImage(request.getCategory()));
         }
+
         project.setTechnologies(cleanTechnologies(request.getTechnologies()));
 
         project.clearTeamMembers();
