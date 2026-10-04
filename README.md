@@ -76,16 +76,22 @@ SMTP_PORT=587
 SMTP_USERNAME=your-address@gmail.com
 SMTP_PASSWORD=your-gmail-app-password
 SMTP_FROM=your-address@gmail.com
+FRONTEND_URL=http://localhost:5173
 ```
 
 Spring Boot imports this file automatically on startup. Values from actual operating-system
 environment variables override the local file. Use a Gmail App Password rather than your
 Google account password. This is a one-time application-owner setup; students and admins never
-enter email credentials. In production, configure the same `SMTP_*` values as server secrets.
-Set `PASSWORD_RESET_COOKIE_SECURE=true` when serving the backend over HTTPS. If the frontend
-and backend are hosted on different sites, also set `PASSWORD_RESET_COOKIE_SAME_SITE=None`;
-otherwise the secure reset cookie remains `Strict` by default. The OTP challenge table is
-created automatically by Hibernate on startup.
+enter email credentials. In production, configure the same `SMTP_*` values as server secrets
+and set `FRONTEND_URL` to the public frontend origin. Reset emails contain a single-use link
+that expires after 30 minutes. The password reset challenge table is created automatically by
+Hibernate on startup.
+
+If Gmail returns SMTP `535`, enable 2-Step Verification for the sender account and create a
+Google App Password. Put the 16-character App Password in `SMTP_PASSWORD` (without spaces),
+confirm `SMTP_USERNAME` is that same Gmail account, then restart the backend. Operating-system
+environment variables override `.env`, so check for stale `SMTP_*` variables if the failure
+continues. Never paste mail credentials into chat or commit them.
 
 Run it:
 
@@ -184,10 +190,8 @@ source into the filter chain, so pre-flight `OPTIONS` requests succeed.
 |---|---|---|---|
 | POST | `/api/auth/register` | Public | Create a student account, returns a JWT |
 | POST | `/api/auth/login` | Public | Log in, returns a JWT |
-| POST | `/api/auth/forgot-password` | Public | Request a reset code (generic response) |
-| POST | `/api/auth/resend-otp` | Public | Resend a reset code (rate limited) |
-| POST | `/api/auth/verify-otp` | Public | Verify code and set a short-lived HttpOnly reset cookie |
-| POST | `/api/auth/reset-password` | Public | Set a new password using the reset cookie |
+| POST | `/api/auth/forgot-password` | Public | Email a rate-limited, single-use password reset link |
+| POST | `/api/auth/reset-password` | Public | Set a new password using the link token and new password |
 | GET | `/api/auth/me` | Authenticated | Current user + liked/bookmarked ids |
 
 ### Projects
