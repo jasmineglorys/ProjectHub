@@ -21,6 +21,7 @@ import com.accet.projecthub.repository.ProjectFileRepository;
 import com.accet.projecthub.repository.ProjectRepository;
 import com.accet.projecthub.repository.ProjectSpecifications;
 import com.accet.projecthub.repository.UserRepository;
+import com.accet.projecthub.security.SecurityUtils;
 import com.accet.projecthub.util.Constants;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -204,6 +205,43 @@ public class ProjectService {
         }
         saveFiles(saved, certificateFiles, "CERTIFICATE");
         return mapper.toDto(saved, likedIds(userId), bookmarkedIds(userId));
+    }
+
+    @Transactional
+    public ProjectDto importProject(ProjectRequest request) {
+        Long adminUserId = SecurityUtils.currentUserId();
+        if (adminUserId == null) {
+            throw new UnauthorizedActionException("Authentication required");
+        }
+
+        User admin = userRepository.findById(adminUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        validateTaxonomy(request);
+
+        Project project = Project.builder()
+                .title(request.getTitle().trim())
+                .description(request.getDescription().trim())
+                .achievement(blankToNull(request.getAchievement()))
+                .deployLink(blankToNull(request.getDeployLink()))
+                .department(request.getDepartment())
+                .category(request.getCategory().trim())
+                .year(request.getYear())
+                .academicYear(blankToNull(request.getAcademicYear()))
+                .image(request.getImage() == null || request.getImage().isBlank()
+                        ? Constants.DEFAULT_IMAGE : request.getImage())
+                .status(ProjectStatus.PENDING)
+                .likesCount(0)
+                .viewsCount(0)
+                .submittedBy(admin)
+                .technologies(cleanTechnologies(request.getTechnologies()))
+                .teamMembers(new ArrayList<>())
+                .build();
+
+        applyTeamMembers(project, request.getTeamMembers());
+
+        Project saved = projectRepository.save(project);
+        return mapper.toDto(saved, new HashSet<>(), new HashSet<>());
     }
 
     @Transactional
