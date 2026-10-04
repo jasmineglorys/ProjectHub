@@ -149,7 +149,7 @@ img {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  min-height: 64px;
+  min-height: 84px;
 }
 
 .brand {
@@ -160,7 +160,7 @@ img {
 
 .brand-logo {
   width: auto;
-  height: 58px;
+  height: 100px;
   display: block;
   object-fit: contain;
   flex-shrink: 0;
@@ -1354,6 +1354,11 @@ textarea:focus {
   margin: 0.85rem auto 0;
 }
 
+.auth-forgot-link {
+  margin: -0.5rem 0 1rem;
+  text-align: right;
+}
+
 .auth-notice {
   margin: 0 0 1rem;
   padding: 0.65rem 0.75rem;
@@ -1362,6 +1367,20 @@ textarea:focus {
   background: #ecfdf5;
   color: #065f46;
   font-size: 0.88rem;
+}
+
+@media (max-width: 520px) {
+  .auth-page {
+    padding: 1.5rem 0.75rem;
+  }
+
+  .auth-head {
+    padding: 1.5rem 1rem;
+  }
+
+  .auth-body {
+    padding: 1.25rem;
+  }
 }
 
 .demo-box {
@@ -2200,8 +2219,12 @@ textarea:focus {
 }
 
 @media (max-width: 720px) {
+  .header-inner {
+    min-height: 54px;
+  }
+
   .brand-logo {
-    height: 34px;
+    height: 46px;
   }
 
   .menu-toggle {
@@ -2210,7 +2233,7 @@ textarea:focus {
 
   .main-nav {
     position: absolute;
-    top: 68px;
+    top: 58px;
     left: 0;
     right: 0;
     background: var(--navy-dark);

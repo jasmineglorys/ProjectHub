@@ -18,31 +18,34 @@ import com.accet.projecthub.repository.ProjectLikeRepository;
 import com.accet.projecthub.repository.UserRepository;
 import com.accet.projecthub.security.JwtService;
 import com.accet.projecthub.util.Constants;
+import jakarta.mail.MessagingException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.lang.NonNull;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.util.HtmlUtils;
 
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.HexFormat;
-import java.util.Objects;
 
 @Service
 public class AuthService {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(AuthService.class);
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
-    private static final int MAX_OTP_ATTEMPTS = 5;
     private static final int MAX_EMAILS_PER_HOUR = 5;
     private static final String RESET_EMAIL_MESSAGE =
-        "If an account exists for that email, a verification code has been sent.";
+        "If an account exists for that email, a password reset link has been sent.";
 
     private final UserRepository userRepository;
     private final ProjectLikeRepository likeRepository;
@@ -52,9 +55,11 @@ public class AuthService {
     private final JwtService jwtService;
     private final JavaMailSender mailSender;
     private final String smtpHost;
+    private final int smtpPort;
     private final String smtpUsername;
     private final String smtpPassword;
     private final String mailFrom;
+    private final String frontendUrl;
 
     public AuthService(UserRepository userRepository,
                        ProjectLikeRepository likeRepository,
@@ -64,9 +69,11 @@ public class AuthService {
                JwtService jwtService,
                JavaMailSender mailSender,
                        @Value("${spring.mail.host:}") String smtpHost,
+                       @Value("${spring.mail.port:587}") int smtpPort,
                        @Value("${spring.mail.username:}") String smtpUsername,
                        @Value("${spring.mail.password:}") String smtpPassword,
-               @Value("${app.mail.from:}") String mailFrom) {
+                       @Value("${app.mail.from:}") String mailFrom,
+                       @Value("${app.frontend.url:http://localhost:5173}") String frontendUrl) {
         this.userRepository = userRepository;
         this.likeRepository = likeRepository;
         this.bookmarkRepository = bookmarkRepository;
@@ -75,9 +82,16 @@ public class AuthService {
         this.jwtService = jwtService;
      this.mailSender = mailSender;
      this.smtpHost = smtpHost;
+    this.smtpPort = smtpPort;
      this.smtpUsername = smtpUsername;
      this.smtpPassword = smtpPassword;
      this.mailFrom = mailFrom;
+        this.frontendUrl = frontendUrl == null || frontendUrl.isBlank()
+            ? "http://localhost:5173"
+            : frontendUrl.trim().replaceAll("/+$", "");
+        LOGGER.info("SMTP configuration loaded: host={}, port={}, username configured={}, password configured={}, sender configured={}, STARTTLS enabled=true, authentication enabled=true",
+            smtpHost, smtpPort, !smtpUsername.isBlank(), !smtpPassword.isBlank(),
+            mailFrom != null && !mailFrom.isBlank());
     }
 
     @Transactional
@@ -128,15 +142,13 @@ public class AuthService {
     public MessageResponse requestPasswordReset(String email) {
         ensureSmtpConfigured();
         String normalizedEmail = email.trim().toLowerCase();
-        userRepository.findByEmailIgnoreCase(normalizedEmail).ifPresent(user -> sendResetOtp(user.getEmail()));
-        return new MessageResponse(RESET_EMAIL_MESSAGE);
-    }
-
-    @Transactional
-    public MessageResponse resendPasswordResetOtp(String email) {
-        ensureSmtpConfigured();
-        String normalizedEmail = email.trim().toLowerCase();
-        userRepository.findByEmailIgnoreCase(normalizedEmail).ifPresent(user -> sendResetOtp(user.getEmail()));
+        userRepository.findByEmailIgnoreCase(normalizedEmail).ifPresent(user -> {
+            try {
+                sendResetLink(user);
+            } catch (EmailDeliveryException exception) {
+                LOGGER.warn("Password reset request completed with a generic response after email delivery failed.");
+            }
+        });
         return new MessageResponse(RESET_EMAIL_MESSAGE);
     }
 
@@ -147,66 +159,38 @@ public class AuthService {
         }
     }
 
-    @NonNull
-    @Transactional(noRollbackFor = BadRequestException.class)
-    public String verifyPasswordResetOtp(String email, String otp) {
-        String normalizedEmail = email.trim().toLowerCase();
-        PasswordResetChallenge challenge = resetChallengeRepository.findLockedByEmail(normalizedEmail)
-                .orElseThrow(() -> new BadRequestException("Invalid or expired verification code."));
-        LocalDateTime now = LocalDateTime.now();
-
-        if (challenge.getOtpHash() == null || challenge.getExpiresAt() == null
-                || !challenge.getExpiresAt().isAfter(now)
-                || challenge.getAttempts() >= MAX_OTP_ATTEMPTS) {
-            throw new BadRequestException("Invalid or expired verification code.");
-        }
-
-        if (!passwordEncoder.matches(otp, challenge.getOtpHash())) {
-            challenge.setAttempts(challenge.getAttempts() + 1);
-            if (challenge.getAttempts() >= MAX_OTP_ATTEMPTS) {
-                challenge.setOtpHash(null);
-                challenge.setExpiresAt(null);
-            }
-            resetChallengeRepository.save(challenge);
-            throw new BadRequestException("Invalid or expired verification code.");
-        }
-
-        byte[] grantBytes = new byte[32];
-        SECURE_RANDOM.nextBytes(grantBytes);
-        String resetGrant = Base64.getUrlEncoder().withoutPadding().encodeToString(grantBytes);
-        challenge.setOtpHash(null);
-        challenge.setExpiresAt(null);
-        challenge.setVerifiedTokenHash(hashResetGrant(resetGrant));
-        challenge.setVerifiedUntil(now.plusMinutes(10));
-        resetChallengeRepository.save(challenge);
-        return Objects.requireNonNull(resetGrant);
-    }
-
     @Transactional
-    public void resetPassword(String resetGrant, String newPassword) {
-        if (resetGrant == null || resetGrant.isBlank()) {
-            throw new BadRequestException("The password reset session has expired. Request a new code.");
+    public void resetPassword(String token, String newPassword) {
+        if (token == null || token.isBlank()) {
+            throw new BadRequestException("This password reset link has expired. Request a new link.");
+        }
+        if (!token.matches("[A-Za-z0-9_-]{43}")) {
+            throw new BadRequestException("This password reset link is invalid. Request a new link.");
         }
 
         PasswordResetChallenge challenge = resetChallengeRepository
-                .findByVerifiedTokenHash(hashResetGrant(resetGrant))
+                .findByVerifiedTokenHash(hashResetGrant(token))
                 .orElseThrow(() -> new BadRequestException(
-                        "The password reset session has expired. Request a new code."));
+                        "This password reset link is invalid or expired. Request a new link."));
         if (challenge.getVerifiedUntil() == null
                 || !challenge.getVerifiedUntil().isAfter(LocalDateTime.now())) {
             resetChallengeRepository.delete(challenge);
-            throw new BadRequestException("The password reset session has expired. Request a new code.");
+            throw new BadRequestException("This password reset link has expired. Request a new link.");
         }
 
-        User user = userRepository.findByEmailIgnoreCase(challenge.getEmail())
+        User user = challenge.getUser();
+        if (user == null) {
+            user = userRepository.findByEmailIgnoreCase(challenge.getEmail())
                 .orElseThrow(() -> new BadRequestException(
-                        "The password reset session has expired. Request a new code."));
+                    "This password reset link is invalid or expired. Request a new link."));
+        }
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
         resetChallengeRepository.delete(challenge);
     }
 
-    private void sendResetOtp(String email) {
+    private void sendResetLink(User user) {
+        String email = user.getEmail();
         LocalDateTime now = LocalDateTime.now();
         PasswordResetChallenge challenge = resetChallengeRepository.findLockedByEmail(email)
                 .orElseGet(() -> {
@@ -214,6 +198,7 @@ public class AuthService {
                     created.setEmail(email);
                     return created;
                 });
+        challenge.setUser(user);
 
         if (challenge.getLastSentAt() != null
                 && challenge.getLastSentAt().isAfter(now.minusSeconds(60))) {
@@ -228,30 +213,51 @@ public class AuthService {
             return;
         }
 
-        String otp = String.format("%06d", SECURE_RANDOM.nextInt(1_000_000));
-        SimpleMailMessage message = new SimpleMailMessage();
-        if (mailFrom != null && !mailFrom.isBlank()) {
-            message.setFrom(mailFrom);
-        }
-        message.setTo(email);
-        message.setSubject("ProjectHub password reset code");
-        message.setText("Your ProjectHub password reset code is " + otp
-                + ". It expires in 5 minutes. If you did not request this, you can ignore this email.");
+        byte[] tokenBytes = new byte[32];
+        SECURE_RANDOM.nextBytes(tokenBytes);
+        String token = Base64.getUrlEncoder().withoutPadding().encodeToString(tokenBytes);
+        String resetUrl = frontendUrl.replaceAll("/$", "") + "/reset-password?token=" + token;
+        String escapedResetUrl = HtmlUtils.htmlEscape(resetUrl);
+        String text = "Hello,\n\nWe received a request to reset your ProjectHub password.\n\n"
+                + "Use this link to create a new password: " + resetUrl + "\n\n"
+                + "This link will expire after 30 minutes and can only be used once.\n\n"
+                + "If you did not request a password reset, you can safely ignore this email.\n\n"
+                + "Regards,\nACCET ProjectHub Team";
+        String html = "<div style=\"font-family:Arial,sans-serif;line-height:1.6;color:#1f2937;max-width:560px;margin:0 auto\">"
+                + "<h2 style=\"color:#183153\">Reset Your ProjectHub Password</h2>"
+                + "<p>Hello,</p><p>We received a request to reset your ProjectHub password.</p>"
+                + "<p>Click below to create a new password:</p>"
+                + "<p><a href=\"" + escapedResetUrl + "\" style=\"display:inline-block;padding:12px 20px;"
+                + "background:#183153;color:#fff;text-decoration:none;border-radius:6px\">Reset Password</a></p>"
+                + "<p>If the button does not work, open this link:<br><a href=\"" + escapedResetUrl + "\">"
+                + escapedResetUrl + "</a></p><p>This link will expire after 30 minutes and can only be used once.</p>"
+                + "<p>If you did not request a password reset, you can safely ignore this email.</p>"
+                + "<p>Regards,<br>ACCET ProjectHub Team</p></div>";
 
         try {
-            mailSender.send(message);
-        } catch (RuntimeException exception) {
+            MimeMessageHelper message = new MimeMessageHelper(
+                    mailSender.createMimeMessage(), true, StandardCharsets.UTF_8.name());
+            if (mailFrom != null && !mailFrom.isBlank()) {
+                message.setFrom(mailFrom);
+            }
+            message.setTo(email);
+            message.setSubject("Reset Your ProjectHub Password");
+            message.setText(text, html);
+            mailSender.send(message.getMimeMessage());
+        } catch (MessagingException | RuntimeException exception) {
+            LOGGER.error("Password reset email delivery failed. Check SMTP host, authentication, and sender settings.",
+                    exception);
             throw new EmailDeliveryException(
-                    "Password reset email could not be sent. Check the SMTP settings and try again.");
+                    "Password reset email could not be sent. Check backend logs for the SMTP error; Gmail requires an App Password.");
         }
 
-        challenge.setOtpHash(passwordEncoder.encode(otp));
-        challenge.setExpiresAt(now.plusMinutes(5));
+        challenge.setOtpHash(null);
+        challenge.setExpiresAt(null);
         challenge.setAttempts(0);
         challenge.setLastSentAt(now);
         challenge.setSendCount(challenge.getSendCount() + 1);
-        challenge.setVerifiedTokenHash(null);
-        challenge.setVerifiedUntil(null);
+        challenge.setVerifiedTokenHash(hashResetGrant(token));
+        challenge.setVerifiedUntil(now.plusMinutes(30));
         resetChallengeRepository.save(challenge);
     }
 

@@ -180,11 +180,12 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 -- ------------------------------------------------------------
 -- 10. password_reset_challenges
--- OTPs and reset grants are stored only as hashes.
+-- Reset tokens are stored only as hashes and linked to their user.
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS password_reset_challenges (
     id                  BIGINT       NOT NULL AUTO_INCREMENT,
     email               VARCHAR(150) NOT NULL,
+    user_id             BIGINT       DEFAULT NULL,
     otp_hash            VARCHAR(100) DEFAULT NULL,
     expires_at          DATETIME(6)  DEFAULT NULL,
     attempts            INT          NOT NULL DEFAULT 0,
@@ -196,5 +197,8 @@ CREATE TABLE IF NOT EXISTS password_reset_challenges (
     PRIMARY KEY (id),
     CONSTRAINT uk_password_reset_email UNIQUE (email),
     CONSTRAINT uk_password_reset_grant UNIQUE (verified_token_hash),
+    CONSTRAINT fk_password_reset_user FOREIGN KEY (user_id)
+        REFERENCES users (id),
+    KEY idx_password_reset_user (user_id),
     KEY idx_password_reset_expiry (expires_at)
 ) ENGINE = InnoDB;

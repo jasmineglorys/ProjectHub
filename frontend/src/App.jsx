@@ -9,6 +9,8 @@ import WinningProjectsPage from './pages/WinningProjectsPage';
 import DepartmentsPage from './pages/DepartmentsPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
 import LoginPage from './pages/LoginPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import RegisterPage from './pages/RegisterPage';
 import SubmitPage from './pages/SubmitPage';
 import ProfilePage from './pages/ProfilePage';
@@ -27,6 +29,8 @@ export default function App() {
           <Route path="/departments" element={<DepartmentsPage />} />
           <Route path="/projects/:id" element={<ProjectDetailPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
           <Route

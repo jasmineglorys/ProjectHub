@@ -72,8 +72,7 @@ public class SecurityConfig {
                         // Public endpoints
                         .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST,
-                            "/api/auth/forgot-password", "/api/auth/verify-otp",
-                            "/api/auth/resend-otp", "/api/auth/reset-password").permitAll()
+                            "/api/auth/forgot-password", "/api/auth/reset-password").permitAll()
                         .requestMatchers("/api/meta/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/departments/**").permitAll()
                         // These two are more specific than /api/projects/* and must be listed first

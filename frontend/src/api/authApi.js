@@ -8,10 +8,5 @@ export const fetchCurrentUser = () => api.get('/auth/me');
 
 export const requestPasswordReset = (payload) => api.post('/auth/forgot-password', payload);
 
-export const resendPasswordResetOtp = (payload) => api.post('/auth/resend-otp', payload);
-
-export const verifyPasswordResetOtp = (payload) =>
-	api.post('/auth/verify-otp', payload, { withCredentials: true });
-
 export const resetPassword = (payload) =>
-	api.post('/auth/reset-password', payload, { withCredentials: true });
+	api.post('/auth/reset-password', payload);
