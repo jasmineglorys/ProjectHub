@@ -93,6 +93,13 @@ public class ProjectController {
                     certificateFiles, coverImage, principal.getId()));
     }
 
+    @PostMapping("/admin/import")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ProjectDto> importProject(@Valid @RequestBody ProjectRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(projectService.importProject(request));
+    }
+
     @GetMapping("/{projectId}/files/{fileId}")
     public ResponseEntity<ByteArrayResource> downloadFile(
             @PathVariable Long projectId,
